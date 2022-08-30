@@ -46,7 +46,7 @@ func TestHeaderVerification(t *testing.T) {
 		headers[i] = block.Header()
 	}
 	// Run the header checker for blocks one-by-one, checking for both valid and invalid nonces
-	chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, nil)
+	chain, _ := NewBlockChain(testdb, nil, gspec, nil, ethash.NewFaker(), vm.Config{}, nil, nil)
 	defer chain.Stop()
 
 	for i := 0; i < len(blocks); i++ {
@@ -85,12 +85,12 @@ func TestHeaderVerificationForMergingEthash(t *testing.T) { testHeaderVerificati
 // Tests the verification for eth1/2 merging, including pre-merge and post-merge
 func testHeaderVerificationForMerging(t *testing.T) {
 	var (
-		testdb      = rawdb.NewMemoryDatabase()
-		preBlocks   []*types.Block
-		postBlocks  []*types.Block
-		runEngine   consensus.Engine
-		chainConfig *params.ChainConfig
-		merger      = consensus.NewMerger(rawdb.NewMemoryDatabase())
+		testdb     = rawdb.NewMemoryDatabase()
+		preBlocks  []*types.Block
+		postBlocks []*types.Block
+		runEngine  consensus.Engine
+		genspec    *Genesis
+		merger     = consensus.NewMerger(rawdb.NewMemoryDatabase())
 	)
 
 	gspec := &Genesis{Config: params.TestChainConfig}
@@ -107,7 +107,8 @@ func testHeaderVerificationForMerging(t *testing.T) {
 	config.TerminalTotalDifficulty = big.NewInt(int64(td))
 	postBlocks, _ = GenerateChain(params.TestChainConfig, preBlocks[len(preBlocks)-1], genEngine, testdb, 8, nil)
 
-	chainConfig = &config
+	//chainConfig = &config
+	genspec.Config = &config
 	runEngine = beacon.New(ethash.NewFaker())
 
 	preHeaders := make([]*types.Header, len(preBlocks))
@@ -125,7 +126,7 @@ func testHeaderVerificationForMerging(t *testing.T) {
 		t.Logf("Log header after the merging %d: %v", block.NumberU64(), string(blob))
 	}
 	// Run the header checker for blocks one-by-one, checking for both valid and invalid nonces
-	chain, _ := NewBlockChain(testdb, nil, chainConfig, runEngine, vm.Config{}, nil, nil)
+	chain, _ := NewBlockChain(testdb, nil, genspec, nil, runEngine, vm.Config{}, nil, nil)
 	defer chain.Stop()
 
 	// Verify the blocks before the merging
@@ -236,11 +237,11 @@ func testHeaderConcurrentVerification(t *testing.T, threads int) {
 		var results <-chan error
 
 		if valid {
-			chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFaker(), vm.Config{}, nil, nil)
+			chain, _ := NewBlockChain(testdb, nil, gspec, nil, ethash.NewFaker(), vm.Config{}, nil, nil)
 			_, results = chain.engine.VerifyHeaders(chain, headers, seals)
 			chain.Stop()
 		} else {
-			chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFakeFailer(uint64(len(headers)-1)), vm.Config{}, nil, nil)
+			chain, _ := NewBlockChain(testdb, nil, gspec, nil, ethash.NewFakeFailer(uint64(len(headers)-1)), vm.Config{}, nil, nil)
 			_, results = chain.engine.VerifyHeaders(chain, headers, seals)
 			chain.Stop()
 		}
@@ -303,7 +304,7 @@ func testHeaderConcurrentAbortion(t *testing.T, threads int) {
 	defer runtime.GOMAXPROCS(old)
 
 	// Start the verifications and immediately abort
-	chain, _ := NewBlockChain(testdb, nil, params.TestChainConfig, ethash.NewFakeDelayer(time.Millisecond), vm.Config{}, nil, nil)
+	chain, _ := NewBlockChain(testdb, nil, gspec, nil, ethash.NewFakeDelayer(time.Millisecond), vm.Config{}, nil, nil)
 	defer chain.Stop()
 
 	abort, results := chain.engine.VerifyHeaders(chain, headers, seals)
