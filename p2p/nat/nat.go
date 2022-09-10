@@ -53,7 +53,7 @@ type Interface interface {
 // The following formats are currently accepted.
 // Note that mechanism names are not case-sensitive.
 //
-//	 "" or "none"         return nil
+//	"" or "none"         return nil
 //	"extip:77.12.33.4"   will assume the local machine is reachable on the given IP
 //	"any"                uses the first auto-detected mechanism
 //	"upnp"               uses the Universal Plug and Play protocol

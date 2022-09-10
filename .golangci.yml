@@ -41,11 +41,6 @@ linters-settings:
   goconst:
     min-len: 3 # minimum length of string constant
     min-occurrences: 6 # minimum number of occurrences
-  gosec:
-    excludes:
-      - G404 # Use of weak random number generator - lots of FP
-      - G107 # Potential http request -- those are intentional
-      - G306 # G306: Expect WriteFile permissions to be 0600 or less
 
 issues:
   exclude-rules:
@@ -66,4 +61,3 @@ issues:
     - 'SA1019: strings.Title is deprecated'
     - 'SA1019: strings.Title has been deprecated since Go 1.18 and an alternative has been available since Go 1.0: The rule Title uses for word boundaries does not handle Unicode punctuation properly. Use golang.org/x/text/cases instead.'
     - 'SA1029: should not use built-in type string as key for value'
-    - 'G306: Expect WriteFile permissions to be 0600 or less'

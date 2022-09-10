@@ -31,6 +31,8 @@ Available commands are:
 	importkeys                                                                                  -- imports signing keys from env
 	debsrc     [ -signer key-id ] [ -upload dest ]                                              -- creates a debian source package
 	nsis                                                                                        -- creates a Windows NSIS installer
+	aar        [ -local ] [ -sign key-id ] [-deploy repo] [ -upload dest ]                      -- creates an Android archive
+	xcode      [ -local ] [ -sign key-id ] [-deploy repo] [ -upload dest ]                      -- creates an iOS XCode framework
 	purge      [ -store blobstore ] [ -days threshold ]                                         -- purges old archives from the blobstore
 
 For all commands, -n prevents execution of external programs (dry run mode).
@@ -144,7 +146,7 @@ var (
 	// This is the version of go that will be downloaded by
 	//
 	//     go run ci.go install -dlgo
-	dlgoVersion = "1.18.5"
+	dlgoVersion = "1.19.1"
 )
 
 var GOBIN, _ = filepath.Abs(filepath.Join("build", "bin"))
