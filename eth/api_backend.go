@@ -220,7 +220,6 @@ func (b *EthAPIBackend) GetTd(ctx context.Context, hash common.Hash) *big.Int {
 }
 
 func (b *EthAPIBackend) GetEVM(ctx context.Context, msg core.Message, state *state.StateDB, header *types.Header, vmConfig *vm.Config) (*vm.EVM, func() error, error) {
-	vmError := func() error { return nil }
 	if vmConfig == nil {
 		vmConfig = b.eth.blockchain.GetVMConfig()
 	}
@@ -230,15 +229,15 @@ func (b *EthAPIBackend) GetEVM(ctx context.Context, msg core.Message, state *sta
 		// make sure to use parent state to avoid mix up inner cache
 		parent := b.eth.blockchain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 		if parent == nil {
-			return nil, vmError, errors.New("parent not exist")
+			return nil, state.Error, errors.New("parent not exist")
 		}
 		parentState, err := b.eth.blockchain.StateAt(parent.Root)
 		if err != nil {
-			return nil, vmError, err
+			return nil, state.Error, err
 		}
 		context.ExtraValidator = b.eth.posa.CreateEvmExtraValidator(header, parentState)
 	}
-	return vm.NewEVM(context, txContext, state, b.eth.blockchain.Config(), *vmConfig), vmError, nil
+	return vm.NewEVM(context, txContext, state, b.eth.blockchain.Config(), *vmConfig), state.Error, nil
 }
 
 func (b *EthAPIBackend) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent) event.Subscription {
