@@ -864,6 +864,12 @@ var (
 		Value:    flags.DirectoryString("."),
 		Category: flags.APICategory,
 	}
+	HttpHeaderFlag = &cli.StringSliceFlag{
+		Name:     "header",
+		Aliases:  []string{"H"},
+		Usage:    "Pass custom headers to the RPC server when using --" + RemoteDBFlag.Name + " or the geth attach console. This flag can be given multiple times.",
+		Category: flags.APICategory,
+	}
 
 	// Gas price oracle settings
 	GpoBlocksFlag = &cli.IntFlag{
@@ -992,13 +998,6 @@ var (
 	InternalTxTraceAll = &cli.BoolFlag{
 		Name:  "internaltx.all",
 		Usage: "Trace and save all internal txs action, with input and output data. By default the node will only trace and save those with value greater then 0.",
-	}
-
-	HttpHeaderFlag = &cli.StringSliceFlag{
-		Name:     "header",
-		Aliases:  []string{"H"},
-		Usage:    "Pass custom headers to the RPC server wheng using --" + RemoteDBFlag.Name + " or the geth attach console.",
-		Category: flags.NetworkingCategory,
 	}
 )
 
