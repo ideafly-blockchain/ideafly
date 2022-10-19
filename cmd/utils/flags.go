@@ -2231,10 +2231,10 @@ func MakeGenesis(ctx *cli.Context) *core.Genesis {
 }
 
 // MakeChain creates a chain manager from set command line flags.
-func MakeChain(ctx *cli.Context, stack *node.Node) (*core.BlockChain, ethdb.Database) {
+func MakeChain(ctx *cli.Context, stack *node.Node, readonly bool) (*core.BlockChain, ethdb.Database) {
 	var (
 		gspec   = MakeGenesis(ctx)
-		chainDb = MakeChainDatabase(ctx, stack, false) // TODO(rjl493456442) support read-only database
+		chainDb = MakeChainDatabase(ctx, stack, readonly)
 	)
 
 	config, _, err := core.SetupGenesisBlock(chainDb, MakeGenesis(ctx))
@@ -2270,8 +2270,10 @@ func MakeChain(ctx *cli.Context, stack *node.Node) (*core.BlockChain, ethdb.Data
 	if !ctx.Bool(SnapshotFlag.Name) {
 		cache.SnapshotLimit = 0 // Disabled
 	}
-	// Disable snapshot generation/wiping by default
-	cache.SnapshotNoBuild = true
+	// If we're in readonly, do not bother generating snapshot data.
+	if readonly {
+		cache.SnapshotNoBuild = true
+	}
 
 	if ctx.IsSet(CacheFlag.Name) || ctx.IsSet(CacheTrieFlag.Name) {
 		cache.TrieCleanLimit = ctx.Int(CacheFlag.Name) * ctx.Int(CacheTrieFlag.Name) / 100
