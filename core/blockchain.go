@@ -77,10 +77,9 @@ var (
 	blockExecutionTimer  = metrics.NewRegisteredTimer("chain/execution", nil)
 	blockWriteTimer      = metrics.NewRegisteredTimer("chain/write", nil)
 
-	blockReorgMeter         = metrics.NewRegisteredMeter("chain/reorg/executes", nil)
-	blockReorgAddMeter      = metrics.NewRegisteredMeter("chain/reorg/add", nil)
-	blockReorgDropMeter     = metrics.NewRegisteredMeter("chain/reorg/drop", nil)
-	blockReorgInvalidatedTx = metrics.NewRegisteredMeter("chain/reorg/invalidTx", nil)
+	blockReorgMeter     = metrics.NewRegisteredMeter("chain/reorg/executes", nil)
+	blockReorgAddMeter  = metrics.NewRegisteredMeter("chain/reorg/add", nil)
+	blockReorgDropMeter = metrics.NewRegisteredMeter("chain/reorg/drop", nil)
 
 	blockPrefetchExecuteTimer   = metrics.NewRegisteredTimer("chain/prefetch/executes", nil)
 	blockPrefetchInterruptMeter = metrics.NewRegisteredMeter("chain/prefetch/interrupts", nil)
@@ -1510,7 +1509,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 
 	// Start a parallel signature recovery (signer will fluke on fork transition, minimal perf loss)
 	signer := types.MakeSigner(bc.chainConfig, chain[0].Number())
-	go senderCacher.recoverFromBlocks(signer, chain)
+	go SenderCacher.RecoverFromBlocks(signer, chain)
 
 	var (
 		stats     = insertStats{startTime: mclock.Now()}
