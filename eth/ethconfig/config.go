@@ -32,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/consensus/npos"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/txpool"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/gasprice"
 	"github.com/ethereum/go-ethereum/ethdb"
@@ -217,6 +218,10 @@ type Config struct {
 	InternalTxTraceDisabled bool `toml:",omitempty"`
 	// Trace and save all internal txs action, with input and output data. By default the node will only trace and save those with value greater then 0.
 	InternalTxTraceAll bool `toml:",omitempty"`
+
+	// SyncTarget defines the target block of sync. It's only used for
+	// development purposes.
+	SyncTarget *types.Block
 }
 
 // CreateConsensusEngine creates a consensus engine for the given chain configuration.
