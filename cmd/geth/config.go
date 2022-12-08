@@ -31,6 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/scwallet"
 	"github.com/ethereum/go-ethereum/accounts/usbwallet"
 	"github.com/ethereum/go-ethereum/cmd/utils"
+	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/internal/debug"
 	"github.com/ethereum/go-ethereum/internal/ethapi"
@@ -167,7 +168,7 @@ func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 		cfg.Eth.OverrideTerminalTotalDifficultyPassed = &override
 	}
 
-	backend, _ := utils.RegisterEthService(stack, &cfg.Eth)
+	backend, eth := utils.RegisterEthService(stack, &cfg.Eth)
 	debug.ID = enode.PubkeyToIDV4(&cfg.Node.NodeKey().PublicKey).TerminalString()
 
 	// Configure log filter RPC API.
@@ -181,6 +182,11 @@ func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 	// Add the Ethereum Stats daemon if requested.
 	if cfg.Ethstats.URL != "" {
 		utils.RegisterEthStatsService(stack, backend, cfg.Ethstats.URL)
+	}
+
+	// Configure full-sync tester service if requested
+	if ctx.IsSet(utils.SyncTargetFlag.Name) && cfg.Eth.SyncMode == downloader.FullSync {
+		utils.RegisterFullSyncTester(stack, eth, ctx.Path(utils.SyncTargetFlag.Name))
 	}
 	return stack, backend
 }
