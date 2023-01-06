@@ -61,8 +61,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		RPCTxFeeCap                           float64
 		Checkpoint                            *params.TrustedCheckpoint      `toml:",omitempty"`
 		CheckpointOracle                      *params.CheckpointOracleConfig `toml:",omitempty"`
-		OverrideTerminalTotalDifficulty       *big.Int                       `toml:",omitempty"`
-		OverrideTerminalTotalDifficultyPassed *bool                          `toml:",omitempty"`
+		OverrideShanghai        *big.Int                       `toml:",omitempty"`
 		InternalTxTraceDisabled               bool                           `toml:",omitempty"`
 		InternalTxTraceAll                    bool                           `toml:",omitempty"`
 	}
@@ -109,10 +108,9 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.RPCTxFeeCap = c.RPCTxFeeCap
 	enc.Checkpoint = c.Checkpoint
 	enc.CheckpointOracle = c.CheckpointOracle
-	enc.OverrideTerminalTotalDifficulty = c.OverrideTerminalTotalDifficulty
-	enc.OverrideTerminalTotalDifficultyPassed = c.OverrideTerminalTotalDifficultyPassed
 	enc.InternalTxTraceDisabled = c.InternalTxTraceDisabled
 	enc.InternalTxTraceAll = c.InternalTxTraceAll
+	enc.OverrideShanghai = c.OverrideShanghai
 	return &enc, nil
 }
 
@@ -161,8 +159,7 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		RPCTxFeeCap                           *float64
 		Checkpoint                            *params.TrustedCheckpoint      `toml:",omitempty"`
 		CheckpointOracle                      *params.CheckpointOracleConfig `toml:",omitempty"`
-		OverrideTerminalTotalDifficulty       *big.Int                       `toml:",omitempty"`
-		OverrideTerminalTotalDifficultyPassed *bool                          `toml:",omitempty"`
+		OverrideShanghai        *big.Int                       `toml:",omitempty"`
 		InternalTxTraceDisabled               *bool                          `toml:",omitempty"`
 		InternalTxTraceAll                    *bool                          `toml:",omitempty"`
 	}
@@ -296,11 +293,8 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	if dec.CheckpointOracle != nil {
 		c.CheckpointOracle = dec.CheckpointOracle
 	}
-	if dec.OverrideTerminalTotalDifficulty != nil {
-		c.OverrideTerminalTotalDifficulty = dec.OverrideTerminalTotalDifficulty
-	}
-	if dec.OverrideTerminalTotalDifficultyPassed != nil {
-		c.OverrideTerminalTotalDifficultyPassed = dec.OverrideTerminalTotalDifficultyPassed
+	if dec.OverrideShanghai != nil {
+		c.OverrideShanghai = dec.OverrideShanghai
 	}
 	if dec.InternalTxTraceDisabled != nil {
 		c.InternalTxTraceDisabled = *dec.InternalTxTraceDisabled
