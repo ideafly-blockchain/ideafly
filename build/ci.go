@@ -31,8 +31,6 @@ Available commands are:
 	importkeys                                                                                  -- imports signing keys from env
 	debsrc     [ -signer key-id ] [ -upload dest ]                                              -- creates a debian source package
 	nsis                                                                                        -- creates a Windows NSIS installer
-	aar        [ -local ] [ -sign key-id ] [-deploy repo] [ -upload dest ]                      -- creates an Android archive
-	xcode      [ -local ] [ -sign key-id ] [-deploy repo] [ -upload dest ]                      -- creates an iOS XCode framework
 	purge      [ -store blobstore ] [ -days threshold ]                                         -- purges old archives from the blobstore
 
 For all commands, -n prevents execution of external programs (dry run mode).
@@ -129,7 +127,7 @@ var (
 		"bionic":  "golang-go",   // EOL: 04/2028
 		"focal":   "golang-go",   // EOL: 04/2030
 		"jammy":   "golang-go",   // EOL: 04/2032
-		"kinetic": "golang-go",   //  EOL: 07/2023
+		"kinetic": "golang-go",   // EOL: 07/2023
 		//"lunar": "golang-go",  // EOL: 01/2024
 	}
 
