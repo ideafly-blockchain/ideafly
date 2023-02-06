@@ -505,7 +505,7 @@ func (db *Database) Node(hash common.Hash) ([]byte, error) {
 	memcacheDirtyMissMeter.Mark(1)
 
 	// Content unavailable in memory, attempt to retrieve from disk
-	enc := rawdb.ReadTrieNode(db.diskdb, hash)
+	enc := rawdb.ReadLegacyTrieNode(db.diskdb, hash)
 	if len(enc) != 0 {
 		if db.cleans != nil {
 			db.cleans.Set(hash[:], enc)
@@ -671,7 +671,7 @@ func (db *Database) Cap(limit common.StorageSize) error {
 	for size > limit && oldest != (common.Hash{}) {
 		// Fetch the oldest referenced node and push into the batch
 		node := db.dirties[oldest]
-		rawdb.WriteTrieNode(batch, oldest, node.rlp())
+		rawdb.WriteLegacyTrieNode(batch, oldest, node.rlp())
 
 		// If we exceeded the ideal batch size, commit and reset
 		if batch.ValueSize() >= ethdb.IdealBatchSize {
@@ -803,7 +803,7 @@ func (db *Database) commit(hash common.Hash, batch ethdb.Batch, uncacher *cleane
 		return err
 	}
 	// If we've reached an optimal batch size, commit and start over
-	rawdb.WriteTrieNode(batch, hash, node.rlp())
+	rawdb.WriteLegacyTrieNode(batch, hash, node.rlp())
 	if callback != nil {
 		callback(hash)
 	}
@@ -1050,6 +1050,6 @@ func (db *Database) GetDirtyHashCache() *HashCache {
 }
 
 // Scheme returns the node scheme used in the database.
-func (db *Database) Scheme() NodeScheme {
-	return &hashScheme{}
+func (db *Database) Scheme() string {
+	return rawdb.HashScheme
 }
