@@ -733,6 +733,7 @@ func doDebianSource(cmdline []string) {
 			if *upload != "" {
 				ppaUpload(*workdir, *upload, *sshUser, []string{source, dsc, changes, buildinfo})
 			}
+			return
 		}
 	}
 }
