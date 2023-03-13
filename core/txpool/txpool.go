@@ -17,7 +17,6 @@
 package txpool
 
 import (
-	"container/heap"
 	"errors"
 	"fmt"
 	"math"
@@ -825,7 +824,7 @@ func (pool *TxPool) handleUnderpriced(tx *types.Transaction, isLocal bool, from 
 		// Add all transactions back to the priced queue
 		if replacesPending {
 			for _, dropTx := range drop {
-				heap.Push(&pool.priced.urgent, dropTx)
+				pool.priced.Put(dropTx, false)
 			}
 			log.Trace("Discarding future transaction replacing pending tx", "hash", hash)
 			return false, ErrFutureReplacePending
