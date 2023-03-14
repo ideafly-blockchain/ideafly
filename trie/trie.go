@@ -604,7 +604,6 @@ func (t *Trie) hashRoot() (node, node) {
 		t.unhashed = 0
 	}()
 	hashed, cached := h.hash(t.root, true)
-	t.unhashed = 0
 	return hashed, cached
 }
 
