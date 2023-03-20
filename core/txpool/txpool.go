@@ -811,7 +811,7 @@ func (pool *TxPool) handleUnderpriced(tx *types.Transaction, isLocal bool, from 
 	}
 
 	// If the new transaction is a future transaction it should never churn pending transactions
-	if pool.isFuture(from, tx) {
+	if !isLocal && pool.isFuture(from, tx) {
 		var replacesPending bool
 		for _, dropTx := range drop {
 			dropSender, _ := types.Sender(pool.signer, dropTx)
