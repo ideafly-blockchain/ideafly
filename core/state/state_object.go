@@ -203,7 +203,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	// If the snapshot is unavailable or reading from it fails, load from the database.
 	if s.db.snap == nil || err != nil {
 		start := time.Now()
-		enc, err = s.getTrie(db).TryGet(key.Bytes())
+		enc, err = s.getTrie(db).TryGetStorage(s.address, key.Bytes())
 		if metrics.EnabledExpensive {
 			s.db.StorageReads += time.Since(start)
 		}
@@ -255,7 +255,7 @@ func (s *stateObject) finalise(prefetch bool) {
 		}
 	}
 	if s.db.prefetcher != nil && prefetch && len(slotsToPrefetch) > 0 && s.data.Root != types.EmptyRootHash {
-		s.db.prefetcher.prefetch(s.addrHash, s.data.Root, slotsToPrefetch)
+		s.db.prefetcher.prefetch(s.addrHash, s.data.Root, s.address, slotsToPrefetch)
 	}
 	if len(s.dirtyStorage) > 0 {
 		s.dirtyStorage = make(Storage)
@@ -283,12 +283,12 @@ func (s *stateObject) updateTrieThreadSafe(db Database) Trie {
 
 		var v []byte
 		if (value == common.Hash{}) {
-			s.db.setError(tr.TryDelete(key[:]))
+			s.db.setError(tr.TryDeleteStorage(s.address, key[:]))
 			s.db.StorageDeleted += 1
 		} else {
 			// Encoding []byte cannot fail, ok to ignore the error.
 			v, _ = rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
-			s.db.setError(tr.TryUpdate(key[:], v))
+			s.db.setError(tr.TryUpdateStorage(s.address, key[:], v))
 			s.db.StorageUpdated += 1
 		}
 		// If state snapshotting is active, cache the data til commit
