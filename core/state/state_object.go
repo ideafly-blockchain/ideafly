@@ -203,7 +203,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 	// If the snapshot is unavailable or reading from it fails, load from the database.
 	if s.db.snap == nil || err != nil {
 		start := time.Now()
-		enc, err = s.getTrie(db).TryGetStorage(s.address, key.Bytes())
+		enc, err = s.getTrie(db).GetStorage(s.address, key.Bytes())
 		if metrics.EnabledExpensive {
 			s.db.StorageReads += time.Since(start)
 		}
@@ -283,12 +283,12 @@ func (s *stateObject) updateTrieThreadSafe(db Database) Trie {
 
 		var v []byte
 		if (value == common.Hash{}) {
-			s.db.setError(tr.TryDeleteStorage(s.address, key[:]))
+			s.db.setError(tr.DeleteStorage(s.address, key[:]))
 			s.db.StorageDeleted += 1
 		} else {
 			// Encoding []byte cannot fail, ok to ignore the error.
 			v, _ = rlp.EncodeToBytes(common.TrimLeftZeroes(value[:]))
-			s.db.setError(tr.TryUpdateStorage(s.address, key[:], v))
+			s.db.setError(tr.UpdateStorage(s.address, key[:], v))
 			s.db.StorageUpdated += 1
 		}
 		// If state snapshotting is active, cache the data til commit
