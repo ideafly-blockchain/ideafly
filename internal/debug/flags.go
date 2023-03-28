@@ -66,6 +66,11 @@ var (
 		Usage:    "Format logs with JSON",
 		Category: flags.LoggingCategory,
 	}
+	logfmtFlag = &cli.BoolFlag{
+		Name:     "log.logfmt",
+		Usage:    "Format logs with logfmt",
+		Category: flags.LoggingCategory,
+	}
 	backtraceAtFlag = &cli.StringFlag{
 		Name:     "log.backtrace",
 		Usage:    "Request a stack trace at a specific logging statement (e.g. \"block.go:271\")",
@@ -124,6 +129,7 @@ var Flags = []cli.Flag{
 	metricLogFlag,
 	vmoduleFlag,
 	logjsonFlag,
+	logfmtFlag,
 	backtraceAtFlag,
 	debugFlag,
 	pprofFlag,
@@ -165,6 +171,8 @@ func setupLogHandler(ctx *cli.Context) (handler log.Handler) {
 	output := io.Writer(os.Stderr)
 	if ctx.Bool(logjsonFlag.Name) {
 		format = log.JSONFormat()
+	} 	else if ctx.Bool(logfmtFlag.Name) {
+		format = log.LogfmtFormat()
 	} else {
 		usecolor := (isatty.IsTerminal(os.Stderr.Fd()) || isatty.IsCygwinTerminal(os.Stderr.Fd())) && os.Getenv("TERM") != "dumb"
 		if usecolor {
