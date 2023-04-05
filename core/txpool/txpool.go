@@ -767,7 +767,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 		}
 	}
 	// Try to replace an existing transaction in the pending pool
-	if list := pool.pending[from]; list != nil && list.Overlaps(tx) {
+	if list := pool.pending[from]; list != nil && list.Contains(tx.Nonce()) {
 		return pool.replacePending(list, from, tx, isLocal)
 	}
 	// New transaction isn't replacing a pending one, push into queue
@@ -820,11 +820,11 @@ func (pool *TxPool) handleUnderpriced(tx *types.Transaction, isLocal bool, from 
 	}
 
 	// If the new transaction is a future transaction it should never churn pending transactions
-	if !isLocal && pool.isFuture(from, tx) {
+	if !isLocal && pool.isGapped(from, tx) {
 		var replacesPending bool
 		for _, dropTx := range drop {
 			dropSender, _ := types.Sender(pool.signer, dropTx)
-			if list := pool.pending[dropSender]; list != nil && list.Overlaps(dropTx) {
+			if list := pool.pending[dropSender]; list != nil && list.Contains(dropTx.Nonce()) {
 				replacesPending = true
 				break
 			}
@@ -874,18 +874,26 @@ func (pool *TxPool) replacePending(list *list, from common.Address, tx *types.Tr
 	return old != nil, nil
 }
 
-// isFuture reports whether the given transaction is immediately executable.
-func (pool *TxPool) isFuture(from common.Address, tx *types.Transaction) bool {
-	list := pool.pending[from]
-	if list == nil {
-		return pool.pendingNonces.get(from) != tx.Nonce()
+// isGapped reports whether the given transaction is immediately executable.
+func (pool *TxPool) isGapped(from common.Address, tx *types.Transaction) bool {
+	// Short circuit if transaction matches pending nonce and can be promoted
+	// to pending list as an executable transaction.
+	next := pool.pendingNonces.get(from)
+	if tx.Nonce() == next {
+		return false
 	}
-	// Sender has pending transactions.
-	if old := list.txs.Get(tx.Nonce()); old != nil {
-		return false // It replaces a pending transaction.
+	// The transaction has a nonce gap with pending list, it's only considered
+	// as executable if transactions in queue can fill up the nonce gap.
+	queue, ok := pool.queue[from]
+	if !ok {
+		return true
 	}
-	// Not replacing, check if parent nonce exists in pending.
-	return list.txs.Get(tx.Nonce()-1) == nil
+	for nonce := next; nonce < tx.Nonce(); nonce++ {
+		if !queue.Contains(nonce) {
+			return true // txs in queue can't fill up the nonce gap
+		}
+	}
+	return false
 }
 
 // enqueueTx inserts a new transaction into the non-executable transaction queue.
