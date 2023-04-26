@@ -56,7 +56,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		RPCGasCap                             uint64
 		RPCEVMTimeout                         time.Duration
 		RPCTxFeeCap                           float64
-		OverrideShanghai        *uint64                       `toml:",omitempty"`
+		OverrideCancun        *uint64                       `toml:",omitempty"`
 		InternalTxTraceDisabled               bool                           `toml:",omitempty"`
 		InternalTxTraceAll                    bool                           `toml:",omitempty"`
 	}
@@ -102,7 +102,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.RPCTxFeeCap = c.RPCTxFeeCap
 	enc.InternalTxTraceDisabled = c.InternalTxTraceDisabled
 	enc.InternalTxTraceAll = c.InternalTxTraceAll
-	enc.OverrideShanghai = c.OverrideShanghai
+	enc.OverrideCancun = c.OverrideCancun
 	return &enc, nil
 }
 
@@ -274,7 +274,7 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		c.RPCTxFeeCap = *dec.RPCTxFeeCap
 	}
 	if dec.OverrideCancun != nil {
-		c.OverrideShanghai = dec.OverrideCancun
+		c.OverrideCancun = dec.OverrideCancun
 	}
 	if dec.InternalTxTraceDisabled != nil {
 		c.InternalTxTraceDisabled = *dec.InternalTxTraceDisabled
