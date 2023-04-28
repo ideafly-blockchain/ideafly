@@ -148,7 +148,7 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		RPCGasCap                             *uint64
 		RPCEVMTimeout                         *time.Duration
 		RPCTxFeeCap                           *float64
-		OverrideShanghai        			  *uint64                       `toml:",omitempty"`
+		OverrideCancun          *uint64 `toml:",omitempty"`
 		InternalTxTraceDisabled               *bool                          `toml:",omitempty"`
 		InternalTxTraceAll                    *bool                          `toml:",omitempty"`
 	}
@@ -273,8 +273,8 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	if dec.RPCTxFeeCap != nil {
 		c.RPCTxFeeCap = *dec.RPCTxFeeCap
 	}
-	if dec.OverrideShanghai != nil {
-		c.OverrideShanghai = dec.OverrideShanghai
+	if dec.OverrideCancun != nil {
+		c.OverrideShanghai = dec.OverrideCancun
 	}
 	if dec.InternalTxTraceDisabled != nil {
 		c.InternalTxTraceDisabled = *dec.InternalTxTraceDisabled
