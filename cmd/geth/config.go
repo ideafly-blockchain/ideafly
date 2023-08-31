@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"runtime"
+	"strings"
 	"unicode"
-
-	"github.com/urfave/cli/v2"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/external"
@@ -44,6 +44,7 @@ import (
 	"github.com/ethereum/go-ethereum/p2p/enode"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/naoina/toml"
+	"github.com/urfave/cli/v2"
 )
 
 var (
@@ -174,6 +175,20 @@ func makeFullNode(ctx *cli.Context) (*node.Node, ethapi.Backend) {
 	}
 	backend, eth := utils.RegisterEthService(stack, &cfg.Eth)
 	debug.ID = enode.PubkeyToIDV4(&cfg.Node.NodeKey().PublicKey).TerminalString()
+
+	// Create gauge with geth system and build information
+	if eth != nil { // The 'eth' backend may be nil in light mode
+		var protos []string
+		for _, p := range eth.Protocols() {
+			protos = append(protos, fmt.Sprintf("%v/%d", p.Name, p.Version))
+		}
+		metrics.NewRegisteredGaugeInfo("geth/info", nil).Update(metrics.GaugeInfoValue{
+			"arch":          runtime.GOARCH,
+			"os":            runtime.GOOS,
+			"version":       cfg.Node.Version,
+			"eth_protocols": strings.Join(protos, ","),
+		})
+	}
 
 	// Configure log filter RPC API.
 	filterSystem := utils.RegisterFilterAPI(stack, backend, &cfg.Eth)
