@@ -20,6 +20,7 @@ package forkid
 import (
 	"encoding/binary"
 	"errors"
+	"github.com/ethereum/go-ethereum/common"
 	"hash/crc32"
 	"math"
 	"math/big"
@@ -77,7 +78,7 @@ func NewID(config *params.ChainConfig, genesis common.Hash, head, time uint64) I
 	hash := crc32.ChecksumIEEE(genesis[:])
 
 	// Calculate the current fork checksum and the next fork block
-	forksByBlock, forksByTime := gatherForks(config, genesis.Time())
+	forksByBlock, forksByTime := gatherForks(config)
 	for _, fork := range forksByBlock {
 		if fork <= head {
 			// Fork already passed, checksum the previous hash and the fork number
@@ -134,7 +135,7 @@ func NewStaticFilter(config *params.ChainConfig, genesis *types.Block) Filter {
 func newFilter(config *params.ChainConfig, genesis *types.Block, headfn func() (uint64, uint64)) Filter {
 	// Calculate the all the valid fork hash and fork next combos
 	var (
-		forksByBlock, forksByTime = gatherForks(config, genesis.Time())
+		forksByBlock, forksByTime = gatherForks(config)
 		forks                     = append(append([]uint64{}, forksByBlock...), forksByTime...)
 		sums                      = make([][4]byte, len(forks)+1) // 0th is the genesis
 	)
@@ -239,7 +240,7 @@ func checksumToBytes(hash uint32) [4]byte {
 
 // gatherForks gathers all the known forks and creates two sorted lists out of
 // them, one for the block number based forks and the second for the timestamps.
-func gatherForks(config *params.ChainConfig, genesis uint64) ([]uint64, []uint64) {
+func gatherForks(config *params.ChainConfig) ([]uint64, []uint64) {
 	// Gather all the fork block numbers via reflection
 	kind := reflect.TypeOf(params.ChainConfig{})
 	conf := reflect.ValueOf(config).Elem()
@@ -290,7 +291,7 @@ func gatherForks(config *params.ChainConfig, genesis uint64) ([]uint64, []uint64
 		forksByBlock = forksByBlock[1:]
 	}
 	// Skip any forks before genesis.
-	for len(forksByTime) > 0 && forksByTime[0] <= genesis {
+	if len(forksByTime) > 0 && forksByTime[0] == 0 {
 		forksByTime = forksByTime[1:]
 	}
 	return forksByBlock, forksByTime
