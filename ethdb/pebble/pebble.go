@@ -22,6 +22,7 @@ package pebble
 import (
 	"bytes"
 	"fmt"
+	"github.com/cockroachdb/errors"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -116,6 +117,18 @@ func (d *Database) onWriteStallBegin(b pebble.WriteStallBeginInfo) {
 
 func (d *Database) onWriteStallEnd() {
 	d.writeDelayTime.Add(int64(time.Since(d.writeDelayStartTime)))
+}
+
+// panicLogger is just a noop logger to disable Pebble's internal logger.
+//
+// TODO(karalabe): Remove when Pebble sets this as the default.
+type panicLogger struct{}
+
+func (l panicLogger) Infof(format string, args ...interface{}) {
+}
+
+func (l panicLogger) Fatalf(format string, args ...interface{}) {
+	panic(errors.Errorf("fatal: "+format, args...))
 }
 
 // New returns a wrapped pebble DB object. The namespace is the prefix that the
