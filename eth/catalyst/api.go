@@ -567,11 +567,13 @@ func (api *ConsensusAPI) checkInvalidAncestor(check common.Hash, head common.Has
 func (api *ConsensusAPI) invalid(err error, latestValid *types.Header) beacon.PayloadStatusV1 {
 	currentHash := api.eth.BlockChain().CurrentBlock().Hash()
 	if latestValid != nil {
-		// Set latest valid hash to 0x0 if parent is PoW block
-		currentHash = common.Hash{}
-		if latestValid.Difficulty.BitLen() == 0 {
+		if latestValid.Difficulty.BitLen() != 0 {
+			// Set latest valid hash to 0x0 if parent is PoW block
+			currentHash = common.Hash{}
+		} else {
 			// Otherwise set latest valid hash to parent hash
-			currentHash = latestValid.Hash()
+			h := latestValid.Hash()
+			currentHash = h
 		}
 	}
 	errorMsg := err.Error()
