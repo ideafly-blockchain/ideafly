@@ -53,6 +53,9 @@ const (
 	// re-request them.
 	maxTxUnderpricedSetSize = 32768
 
+	// maxTxUnderpricedTimeout is the max time a transaction should be stuck in the underpriced set.
+	maxTxUnderpricedTimeout = 5 * time.Minute
+
 	// txArriveTimeout is the time allowance before an announced transaction is
 	// explicitly requested.
 	txArriveTimeout = 500 * time.Millisecond
