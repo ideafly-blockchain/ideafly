@@ -274,7 +274,7 @@ func (f *fuzzer) doFuzz(msgCode uint64, packet interface{}) {
 	fn(f, peer, func() bool { return true })
 }
 
-func Fuzz(input []byte) int {
+func fuzz(input []byte) int {
 	// We expect some large inputs
 	if len(input) < 100 {
 		return -1
