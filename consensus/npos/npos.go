@@ -679,13 +679,53 @@ func (c *Npos) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *ty
 }
 
 func (c *Npos) trySendBlockReward(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) error {
-	//TODO: to be implemented
+	fee := state.GetBalance(consensus.FeeRecoder)
+	if fee.Cmp(common.Big0) <= 0 {
+		return nil
+	}
+
+	// Miner will send tx to deposit block fees to contract, add to his balance first.
+	state.AddBalance(header.Coinbase, fee)
+	// reset fee
+	state.SetBalance(consensus.FeeRecoder, common.Big0)
+
+	method := "distributeBlockReward"
+	data, err := c.abi[systemcontract.ValidatorsContractName].Pack(method)
+	if err != nil {
+		log.Error("Can't pack data for distributeBlockReward", "err", err)
+		return err
+	}
+
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, systemcontract.GetValidatorAddr(header.Number, c.chainConfig), 0, fee, math.MaxUint64, new(big.Int), data, false)
+
+	if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
+		return err
+	}
 
 	return nil
 }
 
 func (c *Npos) tryPunishValidator(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) error {
-	//TODO: to be implemented
+	number := header.Number.Uint64()
+	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil)
+	if err != nil {
+		return err
+	}
+	validators := snap.validators()
+	outTurnValidator := validators[number%uint64(len(validators))]
+	// check sigend recently or not
+	signedRecently := false
+	for _, recent := range snap.Recents {
+		if recent == outTurnValidator {
+			signedRecently = true
+			break
+		}
+	}
+	if !signedRecently {
+		if err := c.punishValidator(outTurnValidator, chain, header, state); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
@@ -750,7 +790,7 @@ func (c *Npos) initializeSystemContracts(chain consensus.ChainHeaderReader, head
 		}
 
 		// directly to execute this consensus engine message, no need the caller's nonce.
-		msg := vmcaller.NewLegacyMessage(header.Coinbase, &contract.addr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, true)
+		msg := vmcaller.NewLegacyMessage(header.Coinbase, &contract.addr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 
 		if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
 			return err
