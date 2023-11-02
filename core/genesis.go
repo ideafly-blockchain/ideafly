@@ -395,6 +395,25 @@ func (g *Genesis) ToBlock() *types.Block {
 			head.BaseFee = new(big.Int).SetUint64(params.InitialBaseFee)
 		}
 	}
+	// init header for NPoS
+	if g.Config != nil && g.Config.Npos != nil {
+		nposConfig := g.Config.Npos
+		n := len(nposConfig.GenesisValidators)
+		if n == 0 {
+			panic("validators are missing in genesis!")
+		}
+		extra := make([]byte, params.NposExtraVanity+n*common.AddressLength+params.NposExtraSeal)
+		copy(extra, head.Extra)
+		i := params.NposExtraVanity
+		for _, v := range nposConfig.GenesisValidators {
+			copy(extra[i:], v.Validator[:])
+			i += common.AddressLength
+		}
+		// make sure to clear the seal bytes
+		copy(extra[i:], make([]byte, params.NposExtraSeal))
+
+		head.Extra = extra
+	}
 	return types.NewBlock(head, nil, nil, nil, trie.NewStackTrie(nil))
 }
 

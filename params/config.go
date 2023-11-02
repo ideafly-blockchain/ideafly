@@ -270,16 +270,16 @@ var (
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, false, new(EthashConfig), nil}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, false, new(EthashConfig), nil, nil}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, false, nil, &CliqueConfig{Period: 0, Epoch: 30000}}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, nil, nil, false, nil, &CliqueConfig{Period: 0, Epoch: 30000}, nil}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, false, new(EthashConfig), nil}
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, nil, nil, false, new(EthashConfig), nil, nil}
 	TestRules       = TestChainConfig.Rules(new(big.Int), false)
 )
 
@@ -385,6 +385,7 @@ type ChainConfig struct {
 	// Various consensus engines
 	Ethash *EthashConfig `json:"ethash,omitempty"`
 	Clique *CliqueConfig `json:"clique,omitempty"`
+	Npos   *NposConfig   `json:"npos,omitempty"`
 }
 
 // EthashConfig is the consensus engine configs for proof-of-work based sealing.
@@ -404,6 +405,26 @@ type CliqueConfig struct {
 // String implements the stringer interface, returning the consensus engine details.
 func (c *CliqueConfig) String() string {
 	return "clique"
+}
+
+// NposConfig is the consensus engine configs for NPoS based sealing.
+type NposConfig struct {
+	Period            uint64           `json:"period"`                 // Number of seconds between blocks to enforce
+	Epoch             uint64           `json:"epoch"`                  // Epoch length to reranking votes and checkpoint
+	GenesisValidators []*ValidatorItem `json:"genesisValidators"`      // The genesis validators
+	StakingAdmin      common.Address   `json:"stakingAdmin,omitempty"` // The administration address of NPoS consensus. NPoS requires a progressive decentralization process.
+	GovAdmin          common.Address   `json:"govAdmin,omitempty"`     // There are some governance features for the chain. it can be disabled by not providing this address.
+}
+
+// String implements the stringer interface, returning the consensus engine details.
+func (c *NposConfig) String() string {
+	return "npos"
+}
+
+// ValidatorItem is the NPoS genesis validator information item
+type ValidatorItem struct {
+	Validator common.Address `json:"validator"`
+	Manager   common.Address `json:"manager"`
 }
 
 // String implements the fmt.Stringer interface.
@@ -433,6 +454,10 @@ func (c *ChainConfig) String() string {
 		} else {
 			banner += "Consensus: Beacon (proof-of-stake), merged from Clique (proof-of-authority)\n"
 		}
+	case c.Npos != nil:
+		banner += "Consensus: NPoS\n"
+		banner += fmt.Sprintf(" - Period: %d seconds\n", c.Npos.Period)
+		banner += fmt.Sprintf(" - Epoch : %d \n", c.Npos.Epoch)
 	default:
 		banner += "Consensus: unknown\n"
 	}
