@@ -129,7 +129,7 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 	// Iterate through the headers and create a new snapshot
 	snap := s.copy()
 
-	for _, header := range headers {
+	for i, header := range headers {
 		// Remove any votes on checkpoint blocks
 		number := header.Number.Uint64()
 		// Delete the oldest validator from the recent list to allow it signing again
@@ -152,9 +152,27 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 		snap.Recents[number] = validator
 
 		// update validators at the first block at epoch
+		// use a look-back validators set for NPoS.
+		// Which means: the blocks in the first two epoch will use the genesis validators;
+		// the blocks ≥ 2*EpochPeriod + 1 are using the look-back validators set.
 		if number > 0 && number%s.config.Epoch == 0 {
-			checkpointHeader := header
-
+			var checkpointHeader *types.Header
+			// For a large chain insertion, the previous blocks may not have been written to db,
+			// so we need to find it through both previous `headers` and parents
+			if uint64(i) >= s.config.Epoch {
+				checkpointHeader = headers[i-int(s.config.Epoch)]
+			} else {
+				// i < epoch ==> epoch -i >= 1
+				idxInParents := len(parents) - (int(s.config.Epoch) - i)
+				if idxInParents >= 0 {
+					checkpointHeader = parents[idxInParents]
+				} else {
+					checkpointHeader = chain.GetHeaderByNumber(number - s.config.Epoch)
+					if checkpointHeader == nil {
+						return nil, consensus.ErrUnknownAncestor
+					}
+				}
+			}
 			// get validators from headers and use that for new validator set
 			validators := make([]common.Address, (len(checkpointHeader.Extra)-extraVanity-extraSeal)/common.AddressLength)
 			for i := 0; i < len(validators); i++ {
