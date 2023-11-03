@@ -58,7 +58,7 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // transactions failed to execute due to insufficient gas it will return an error.
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 	var (
-		receipts    types.Receipts
+		receipts    = make([]*types.Receipt, 0)
 		usedGas     = new(uint64)
 		header      = block.Header()
 		blockHash   = block.Hash()
@@ -80,6 +80,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		}
 	}
 
+	signer := types.MakeSigner(p.config, header.Number)
+	commonTxs := make([]*types.Transaction, 0, len(block.Transactions()))
+	systemTxs := make([]*types.Transaction, 0)
 	// Iterate over and process the individual transactions
 
 	// preload from and to of txs
@@ -87,6 +90,20 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	statedb.PreloadAccounts(block, signer)
 
 	for i, tx := range block.Transactions() {
+		if isPoSA {
+			sender, err := types.Sender(signer, tx)
+			if err != nil {
+				return nil, nil, 0, err
+			}
+			ok, err := posa.IsSysTransaction(sender, tx, header)
+			if err != nil {
+				return nil, nil, 0, err
+			}
+			if ok {
+				systemTxs = append(systemTxs, tx)
+				continue
+			}
+		}
 		msg, err := tx.AsMessage(types.MakeSigner(p.config, header.Number), header.BaseFee)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
@@ -98,9 +115,12 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
+		commonTxs = append(commonTxs, tx)
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
+	if err := p.engine.Finalize(p.bc, header, statedb, &commonTxs, block.Uncles(), &receipts, systemTxs); err != nil {
+		return nil, nil, 0, err
+	}
 
 	return receipts, allLogs, *usedGas, nil
 }

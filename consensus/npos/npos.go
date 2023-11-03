@@ -146,6 +146,8 @@ var (
 
 	// errInvalidCoinbase is returned if the coinbase isn't the validator of the block.
 	errInvalidCoinbase = errors.New("invalid coin base")
+
+	errInvalidSysGovCount = errors.New("invalid system governance tx count")
 )
 
 // StateFn gets state by the state root hash.
@@ -600,16 +602,25 @@ func (c *Npos) Prepare(chain consensus.ChainHeaderReader, header *types.Header) 
 
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given.
-func (c *Npos) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header) error {
-
+func (c *Npos) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs *[]*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt, systemTxs []*types.Transaction) error {
 	if header.Difficulty.Cmp(diffInTurn) != 0 {
 		if err := c.tryPunishValidator(chain, header, state); err != nil {
 			return err
 		}
 	}
 
+	// avoid nil pointer
+	if txs == nil {
+		s := make([]*types.Transaction, 0)
+		txs = &s
+	}
+	if receipts == nil {
+		rs := make([]*types.Receipt, 0)
+		receipts = &rs
+	}
+
 	// execute block reward tx.
-	if len(txs) > 0 {
+	if len(*txs) > 0 {
 		if err := c.trySendBlockReward(chain, header, state); err != nil {
 			return err
 		}
@@ -633,6 +644,42 @@ func (c *Npos) Finalize(chain consensus.ChainHeaderReader, header *types.Header,
 		}
 	}
 
+	//handle system governance Proposal
+	proposalCount, err := c.getPassedProposalCount(chain, header, state)
+	if err != nil {
+		return err
+	}
+	if proposalCount != uint32(len(systemTxs)) {
+		return errInvalidSysGovCount
+	}
+	// Due to the logics of the finish operation of contract `governance`, when finishing a proposal which
+	// is not the last passed proposal, it will change the sequence. So in here we must first executes all
+	// passed proposals, and then finish then all.
+	pIds := make([]*big.Int, 0, proposalCount)
+	for i := uint32(0); i < proposalCount; i++ {
+		prop, err := c.getPassedProposalByIndex(chain, header, state, i)
+		if err != nil {
+			return err
+		}
+		// execute the system governance Proposal
+		tx := systemTxs[int(i)]
+		receipt, err := c.replayProposal(chain, header, state, prop, len(*txs), tx)
+		if err != nil {
+			return err
+		}
+		*txs = append(*txs, tx)
+		*receipts = append(*receipts, receipt)
+		// set
+		pIds = append(pIds, prop.Id)
+	}
+	// Finish all proposal
+	for i := uint32(0); i < proposalCount; i++ {
+		err = c.finishProposalById(chain, header, state, pIds[i])
+		if err != nil {
+			return err
+		}
+	}
+
 	// No block rewards in PoA, so the state remains as is and uncles are dropped
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = types.CalcUncleHash(nil)
@@ -642,7 +689,7 @@ func (c *Npos) Finalize(chain consensus.ChainHeaderReader, header *types.Header,
 
 // FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,
 // nor block rewards given, and returns the final block.
-func (c *Npos) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (b *types.Block, err error) {
+func (c *Npos) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs []*types.Transaction, uncles []*types.Header, receipts []*types.Receipt) (b *types.Block, rs []*types.Receipt, err error) {
 	defer func() {
 		if err != nil {
 			log.Warn("FinalizeAndAssemble failed", "err", err)
@@ -670,12 +717,52 @@ func (c *Npos) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *ty
 		}
 	}
 
+	//handle system governance Proposal
+	//
+	// Note:
+	// Even if the miner is not `running`, it's still working,
+	// the 'miner.worker' will try to FinalizeAndAssemble a block,
+	// in this case, the signTxFn is not set. A `non-miner node` can't execute system governance proposal.
+	if c.signTxFn != nil {
+		proposalCount, err := c.getPassedProposalCount(chain, header, state)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		// Due to the logics of the finish operation of contract `governance`, when finishing a proposal which
+		// is not the last passed proposal, it will change the sequence. So in here we must first executes all
+		// passed proposals, and then finish then all.
+		pIds := make([]*big.Int, 0, proposalCount)
+		for i := uint32(0); i < proposalCount; i++ {
+			prop, err := c.getPassedProposalByIndex(chain, header, state, i)
+			if err != nil {
+				return nil, nil, err
+			}
+			// execute the system governance Proposal
+			tx, receipt, err := c.executeProposal(chain, header, state, prop, len(txs))
+			if err != nil {
+				return nil, nil, err
+			}
+			txs = append(txs, tx)
+			receipts = append(receipts, receipt)
+			// set
+			pIds = append(pIds, prop.Id)
+		}
+		// Finish all proposal
+		for i := uint32(0); i < proposalCount; i++ {
+			err = c.finishProposalById(chain, header, state, pIds[i])
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+	}
+
 	// No block rewards in PoA, so the state remains as is and uncles are dropped
 	header.Root = state.IntermediateRoot(chain.Config().IsEIP158(header.Number))
 	header.UncleHash = types.CalcUncleHash(nil)
 
 	// Assemble and return the final block for sealing
-	return types.NewBlock(header, txs, nil, receipts, new(trie.Trie)), nil
+	return types.NewBlock(header, txs, nil, receipts, new(trie.Trie)), receipts, nil
 }
 
 func (c *Npos) trySendBlockReward(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) error {
@@ -1068,21 +1155,4 @@ func encodeSigHeader(w io.Writer, header *types.Header) {
 	if err != nil {
 		panic("can't encode: " + err.Error())
 	}
-}
-
-// IsSysTransaction checks whether a specific transaction is a system transaction.
-func (c *Npos) IsSysTransaction(sender common.Address, tx *types.Transaction, header *types.Header) (bool, error) {
-	if tx.To() == nil {
-		return false, nil
-	}
-
-	to := tx.To()
-	if sender == header.Coinbase && *to == systemcontract.SysGovToAddr && tx.GasPrice().Sign() == 0 {
-		return true, nil
-	}
-	// Make sure the miner can NOT call the system contract through a normal transaction.
-	if sender == header.Coinbase && *to == systemcontract.SysGovContractAddr {
-		return true, nil
-	}
-	return false, nil
 }
