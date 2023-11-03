@@ -72,6 +72,14 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 	blockContext := NewEVMBlockContext(header, p.bc, nil)
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, cfg)
+
+	posa, isPoSA := p.engine.(consensus.PoSA)
+	if isPoSA {
+		if err := posa.PreHandle(p.bc, header, statedb); err != nil {
+			return nil, nil, 0, err
+		}
+	}
+
 	// Iterate over and process the individual transactions
 
 	// preload from and to of txs

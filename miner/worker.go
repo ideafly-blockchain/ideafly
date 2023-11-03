@@ -189,6 +189,10 @@ type worker struct {
 	eth         Backend
 	chain       *core.BlockChain
 
+	// Is the engine a PoSA engine?
+	posa   consensus.PoSA
+	isPoSA bool
+
 	// Feeds
 	pendingLogsFeed event.Feed
 
@@ -252,10 +256,13 @@ type worker struct {
 }
 
 func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus.Engine, eth Backend, mux *event.TypeMux, isLocalBlock func(header *types.Header) bool, init bool) *worker {
+	posa, isPoSA := engine.(consensus.PoSA)
 	worker := &worker{
 		config:             config,
 		chainConfig:        chainConfig,
 		engine:             engine,
+		isPoSA:             isPoSA,
+		posa:               posa,
 		eth:                eth,
 		mux:                mux,
 		chain:              eth.BlockChain(),
@@ -1023,6 +1030,13 @@ func (w *worker) prepareWork(genParams *generateParams) (*environment, error) {
 		log.Error("Failed to create sealing context", "err", err)
 		return nil, err
 	}
+	// Create the current work task and check any fork transitions needed
+	if w.isPoSA {
+		if err := w.posa.PreHandle(w.chain, header, env.state); err != nil {
+			log.Error("Failed to apply system contract upgrade", "err", err)
+			return nil, err
+		}
+	}
 	// Accumulate the uncles for the sealing work only if it's allowed.
 	if !genParams.noUncle {
 		commitUncles := func(blocks map[common.Hash]*types.Block) {
@@ -1104,6 +1118,7 @@ func (w *worker) commitWork(interrupt *int32, noempty bool, timestamp int64) {
 	work, err := w.prepareWork(&generateParams{
 		timestamp: uint64(timestamp),
 		coinbase:  coinbase,
+		noUncle:   w.isPoSA,
 	})
 	if err != nil {
 		return
