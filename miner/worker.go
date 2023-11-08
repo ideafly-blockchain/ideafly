@@ -98,6 +98,8 @@ type environment struct {
 	txs      []*types.Transaction
 	receipts []*types.Receipt
 	uncles   map[common.Hash]*types.Header
+
+	extraValidator types.EvmExtraValidator
 }
 
 // copy creates a deep copy of environment.
@@ -832,7 +834,7 @@ func (w *worker) updateSnapshot(env *environment) {
 func (w *worker) commitTransaction(env *environment, tx *types.Transaction) ([]*types.Log, error) {
 	snap := env.state.Snapshot()
 
-	receipt, err := core.ApplyTransaction(w.chainConfig, w.chain, &env.coinbase, env.gasPool, env.state, env.header, tx, &env.header.GasUsed, *w.chain.GetVMConfig())
+	receipt, err := core.ApplyTransaction(w.chainConfig, w.chain, &env.coinbase, env.gasPool, env.state, env.header, tx, &env.header.GasUsed, *w.chain.GetVMConfig(), w.current.extraValidator)
 	if err != nil {
 		env.state.RevertToSnapshot(snap)
 		return nil, err
@@ -894,6 +896,15 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 
 			txs.Pop()
 			continue
+		}
+		// consensus related validation
+		if w.isPoSA {
+			err := w.posa.ValidateTx(from, tx, w.current.header, w.current.state)
+			if err != nil {
+				log.Trace("Ignoring consensus invalid transaction", "hash", tx.Hash().String(), "from", from.String(), "to", tx.To(), "err", err)
+				txs.Pop()
+				continue
+			}
 		}
 		// Start executing the transaction
 		env.state.Prepare(tx.Hash(), env.tcount)
@@ -1036,6 +1047,7 @@ func (w *worker) prepareWork(genParams *generateParams) (*environment, error) {
 			log.Error("Failed to apply system contract upgrade", "err", err)
 			return nil, err
 		}
+		env.extraValidator = w.posa.CreateEvmExtraValidator(header, env.state)
 	}
 	// Accumulate the uncles for the sealing work only if it's allowed.
 	if !genParams.noUncle {

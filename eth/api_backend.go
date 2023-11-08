@@ -219,6 +219,18 @@ func (b *EthAPIBackend) GetEVM(ctx context.Context, msg core.Message, state *sta
 	}
 	txContext := core.NewEVMTxContext(msg)
 	context := core.NewEVMBlockContext(header, b.eth.BlockChain(), nil)
+	if b.eth.isPoSA {
+		// make sure to use parent state to avoid mix up inner cache
+		parent := b.eth.blockchain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+		if parent == nil {
+			return nil, vmError, errors.New("parent not exist")
+		}
+		parentState, err := b.eth.blockchain.StateAt(parent.Root)
+		if err != nil {
+			return nil, vmError, err
+		}
+		context.ExtraValidator = b.eth.posa.CreateEvmExtraValidator(header, parentState)
+	}
 	return vm.NewEVM(context, txContext, state, b.eth.blockchain.Config(), *vmConfig), vmError, nil
 }
 

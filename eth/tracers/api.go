@@ -283,6 +283,7 @@ func (api *API) traceChain(ctx context.Context, start, end *types.Block, config 
 				blockCtx := core.NewEVMBlockContext(header, api.chainContext(localctx), nil)
 				if api.isPoSA {
 					_ = api.posa.PreHandle(api.backend.ChainHeaderReader(), header, task.statedb)
+					blockCtx.ExtraValidator = api.posa.CreateEvmExtraValidator(header, task.statedb)
 				}
 				// Trace all the transactions contained within
 				for i, tx := range task.block.Transactions() {
@@ -625,6 +626,9 @@ func (api *API) traceBlock(ctx context.Context, block *types.Block, config *Trac
 		pend.Add(1)
 		go func() {
 			blockCtx := core.NewEVMBlockContext(block.Header(), api.chainContext(ctx), nil)
+			if api.isPoSA {
+				blockCtx.ExtraValidator = api.posa.CreateEvmExtraValidator(header, statedb)
+			}
 			defer pend.Done()
 			// Fetch and execute the next transaction trace tasks
 			for task := range jobs {
@@ -739,6 +743,7 @@ func (api *API) standardTraceBlockToFile(ctx context.Context, block *types.Block
 	)
 	if api.isPoSA {
 		_ = api.posa.PreHandle(api.backend.ChainHeaderReader(), header, statedb)
+		vmctx.ExtraValidator = api.posa.CreateEvmExtraValidator(header, statedb)
 	}
 
 	// Check if there are any overrides: the caller may wish to enable a future
@@ -909,6 +914,9 @@ func (api *API) TraceCall(ctx context.Context, args ethapi.TransactionArgs, bloc
 		return nil, err
 	}
 	vmctx := core.NewEVMBlockContext(block.Header(), api.chainContext(ctx), nil)
+	if api.isPoSA {
+		vmctx.ExtraValidator = api.posa.CreateEvmExtraValidator(block.Header(), statedb)
+	}
 	// Apply the customization rules if required.
 	if config != nil {
 		if err := config.StateOverrides.Apply(statedb); err != nil {

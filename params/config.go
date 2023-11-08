@@ -409,11 +409,12 @@ func (c *CliqueConfig) String() string {
 
 // NposConfig is the consensus engine configs for NPoS based sealing.
 type NposConfig struct {
-	Period            uint64           `json:"period"`                 // Number of seconds between blocks to enforce
-	Epoch             uint64           `json:"epoch"`                  // Epoch length to reranking votes and checkpoint
-	GenesisValidators []*ValidatorItem `json:"genesisValidators"`      // The genesis validators
-	StakingAdmin      common.Address   `json:"stakingAdmin,omitempty"` // The administration address of NPoS consensus. NPoS requires a progressive decentralization process.
-	GovAdmin          common.Address   `json:"govAdmin,omitempty"`     // There are some governance features for the chain. it can be disabled by not providing this address.
+	Period                uint64           `json:"period"`                 // Number of seconds between blocks to enforce
+	Epoch                 uint64           `json:"epoch"`                  // Epoch length to reranking votes and checkpoint
+	GenesisValidators     []*ValidatorItem `json:"genesisValidators"`      // The genesis validators
+	StakingAdmin          common.Address   `json:"stakingAdmin,omitempty"` // The administration address of NPoS consensus. NPoS requires a progressive decentralization process.
+	GovAdmin              common.Address   `json:"govAdmin,omitempty"`     // There are some governance features for the chain. it can be disabled by not providing this address.
+	EnableDevVerification bool             `json:"enableDevVerification"`  // Enable developer address verification
 }
 
 // String implements the stringer interface, returning the consensus engine details.

@@ -78,6 +78,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		if err := posa.PreHandle(p.bc, header, statedb); err != nil {
 			return nil, nil, 0, err
 		}
+		vmenv.Context.ExtraValidator = posa.CreateEvmExtraValidator(header, statedb)
 	}
 
 	signer := types.MakeSigner(p.config, header.Number)
@@ -102,6 +103,10 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			if ok {
 				systemTxs = append(systemTxs, tx)
 				continue
+			}
+			err = posa.ValidateTx(sender, tx, header, statedb)
+			if err != nil {
+				return nil, nil, 0, err
 			}
 		}
 		msg, err := tx.AsMessage(types.MakeSigner(p.config, header.Number), header.BaseFee)
@@ -174,13 +179,14 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, author *com
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
-func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, error) {
+func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config, extraValidator types.EvmExtraValidator) (*types.Receipt, error) {
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), header.BaseFee)
 	if err != nil {
 		return nil, err
 	}
 	// Create a new context to be used in the EVM environment
 	blockContext := NewEVMBlockContext(header, bc, author)
+	blockContext.ExtraValidator = extraValidator
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, config, cfg)
 	return applyTransaction(msg, config, author, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv)
 }

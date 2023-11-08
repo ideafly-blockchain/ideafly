@@ -223,6 +223,16 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, chainConfig, eth.blockchain)
 
+	// do some extra work if consensus engine is congress.
+	if nposEngine, ok := eth.engine.(*npos.Npos); ok {
+		// set state fn
+		nposEngine.SetStateFn(eth.blockchain.StateAt)
+		// set consensus-related transaction validator
+		eth.txPool.InitExTxValidator(nposEngine)
+		//
+		nposEngine.SetChain(eth.blockchain)
+	}
+
 	// Permit the downloader to use the trie cache allowance during fast sync
 	cacheLimit := cacheConfig.TrieCleanLimit + cacheConfig.TrieDirtyLimit + cacheConfig.SnapshotLimit
 	checkpoint := config.Checkpoint

@@ -149,6 +149,10 @@ type blockChain interface {
 	SubscribeChainHeadEvent(ch chan<- ChainHeadEvent) event.Subscription
 }
 
+type exTxValidator interface {
+	ValidateTx(sender common.Address, tx *types.Transaction, header *types.Header, parentState *state.StateDB) error
+}
+
 // TxPoolConfig are the configuration parameters of the transaction pool.
 type TxPoolConfig struct {
 	Locals    []common.Address // Addresses that should be treated by default as local
@@ -257,6 +261,14 @@ type TxPool struct {
 	all     *txLookup                    // All transactions to allow lookups
 	priced  *txPricedList                // All transactions sorted by price
 
+	txValidator    exTxValidator // A specific consensus can use this to do some extra validation to a transaction
+	nextFakeHeader *types.Header // A fake header of next block for extra transaction validation
+	// disableExValidate will disable the extra tx validation during a period if it's true,
+	// there's a special case we need this:
+	// during a large chain insertion, the ChainHeadEvent will not be fired in time, then some old trie-nodes
+	// will be discarded due to GC, and it will cause failure to get blacklist.
+	disableExValidate bool
+
 	chainHeadCh     chan ChainHeadEvent
 	chainHeadSub    event.Subscription
 	reqResetCh      chan *txpoolResetRequest
@@ -329,6 +341,12 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	go pool.loop()
 
 	return pool
+}
+
+// InitExTxValidator sets the extra validator
+func (pool *TxPool) InitExTxValidator(v exTxValidator) {
+	pool.makeFakeHeader(pool.chain.CurrentBlock().Header())
+	pool.txValidator = v
 }
 
 // loop is the transaction pool's main event loop, waiting for and reacting to
@@ -641,6 +659,17 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	if tx.Gas() < intrGas {
 		return ErrIntrinsicGas
+	}
+	// do some extra validation if needed
+	if pool.txValidator != nil && !pool.disableExValidate {
+		err := pool.txValidator.ValidateTx(from, tx, pool.nextFakeHeader, pool.currentState)
+		if err == types.ErrAddressDenied {
+			return err
+		}
+		if err != nil {
+			log.Info("ValidateTx error", "err", err)
+			pool.disableExValidate = true
+		}
 	}
 	return nil
 }
@@ -1293,6 +1322,11 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	pool.currentState = statedb
 	pool.pendingNonces = newTxNoncer(statedb)
 	pool.currentMaxGas = newHead.GasLimit
+	// Update fake next header if necessary
+	if pool.txValidator != nil {
+		pool.makeFakeHeader(newHead)
+		pool.disableExValidate = false
+	}
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
@@ -1304,6 +1338,17 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	pool.istanbul = pool.chainconfig.IsIstanbul(next)
 	pool.eip2718 = pool.chainconfig.IsBerlin(next)
 	pool.eip1559 = pool.chainconfig.IsLondon(next)
+}
+
+func (pool *TxPool) makeFakeHeader(currHead *types.Header) {
+	next := new(big.Int).Add(currHead.Number, big.NewInt(1))
+	pool.nextFakeHeader = &types.Header{
+		ParentHash: currHead.Hash(),
+		Difficulty: new(big.Int).Set(currHead.Difficulty),
+		Number:     next,
+		GasLimit:   currHead.GasLimit,
+		Time:       currHead.Time + 1,
+	}
 }
 
 // promoteExecutables moves transactions that have become processable from the

@@ -2,12 +2,15 @@ package npos
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus"
@@ -16,8 +19,15 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/rlp"
+)
+
+var (
+	getblacklistTimer = metrics.NewRegisteredTimer("congress/blacklist/get", nil)
+	getRulesTimer     = metrics.NewRegisteredTimer("congress/eventcheckrules/get", nil)
 )
 
 // Proposal is the system governance proposal info.
@@ -227,6 +237,7 @@ func (c *Npos) ApplySysTx(evm *vm.EVM, state *state.StateDB, txIndex int, sender
 	if err = rlp.DecodeBytes(tx.Data(), prop); err != nil {
 		return
 	}
+	evm.Context.ExtraValidator = nil
 	nonce := evm.StateDB.GetNonce(sender)
 	//add nonce for validator
 	evm.StateDB.SetNonce(sender, nonce+1)
@@ -251,4 +262,275 @@ func (c *Npos) ApplySysTx(evm *vm.EVM, state *state.StateDB, txIndex int, sender
 		vmerr = errors.New("unsupported action")
 	}
 	return
+}
+
+// CanCreate determines where a given address can create a new contract.
+//
+// This will queries the system Developers contract, by DIRECTLY to get the target slot value of the contract,
+// it means that it's strongly relative to the layout of the Developers contract's state variables
+func (c *Npos) CanCreate(state consensus.StateReader, addr common.Address, height *big.Int) bool {
+	if c.config.EnableDevVerification {
+		if isDeveloperVerificationEnabled(state) {
+			slot := calcSlotOfDevMappingKey(addr)
+			valueHash := state.GetState(systemcontract.AddressListContractAddr, slot)
+			// none zero value means true
+			return valueHash.Big().Sign() > 0
+		}
+	}
+	return true
+}
+
+// ValidateTx do a consensus-related validation on the given transaction at the given header and state.
+// the parentState must be the state of the header's parent block.
+func (c *Npos) ValidateTx(sender common.Address, tx *types.Transaction, header *types.Header, parentState *state.StateDB) error {
+	// Must use the parent state for current validation,
+	// so we must starting the validation after redCoastBlock
+	m, err := c.getBlacklist(header, parentState)
+	if err != nil {
+		return err
+	}
+	if d, exist := m[sender]; exist && (d != DirectionTo) {
+		log.Trace("Hit blacklist", "tx", tx.Hash().String(), "addr", sender.String(), "direction", d)
+		return types.ErrAddressDenied
+	}
+	if to := tx.To(); to != nil {
+		if d, exist := m[*to]; exist && (d != DirectionFrom) {
+			log.Trace("Hit blacklist", "tx", tx.Hash().String(), "addr", to.String(), "direction", d)
+			return types.ErrAddressDenied
+		}
+	}
+	return nil
+}
+
+func (c *Npos) getBlacklist(header *types.Header, parentState *state.StateDB) (map[common.Address]blacklistDirection, error) {
+	defer func(start time.Time) {
+		getblacklistTimer.UpdateSince(start)
+	}(time.Now())
+
+	if v, ok := c.blacklists.Get(header.ParentHash); ok {
+		return v.(map[common.Address]blacklistDirection), nil
+	}
+
+	c.blLock.Lock()
+	defer c.blLock.Unlock()
+	if v, ok := c.blacklists.Get(header.ParentHash); ok {
+		return v.(map[common.Address]blacklistDirection), nil
+	}
+
+	// if the last updates is long ago, we don't need to get blacklist from the contract.
+	num := header.Number.Uint64()
+	lastUpdated := lastBlacklistUpdatedNumber(parentState)
+	if num >= 2 && num > lastUpdated+1 {
+		parent := c.chain.GetHeader(header.ParentHash, num-1)
+		if parent != nil {
+			if v, ok := c.blacklists.Get(parent.ParentHash); ok {
+				m := v.(map[common.Address]blacklistDirection)
+				c.blacklists.Add(header.ParentHash, m)
+				return m, nil
+			}
+		} else {
+			log.Error("Unexpected error when getBlacklist, can not get parent from chain", "number", num, "blockHash", header.Hash(), "parentHash", header.ParentHash)
+		}
+	}
+
+	// can't get blacklist from cache, try to call the contract
+	alABI := c.abi[systemcontract.AddressListContractName]
+	get := func(method string) ([]common.Address, error) {
+		ret, err := c.commonCallContract(header, parentState, alABI, systemcontract.AddressListContractAddr, method, 1)
+		if err != nil {
+			log.Error(fmt.Sprintf("%s failed", method), "err", err)
+			return nil, err
+		}
+
+		blacks, ok := ret[0].([]common.Address)
+		if !ok {
+			return []common.Address{}, errors.New("invalid blacklist format")
+		}
+		return blacks, nil
+	}
+	froms, err := get("getBlacksFrom")
+	if err != nil {
+		return nil, err
+	}
+	tos, err := get("getBlacksTo")
+	if err != nil {
+		return nil, err
+	}
+
+	m := make(map[common.Address]blacklistDirection)
+	for _, from := range froms {
+		m[from] = DirectionFrom
+	}
+	for _, to := range tos {
+		if _, exist := m[to]; exist {
+			m[to] = DirectionBoth
+		} else {
+			m[to] = DirectionTo
+		}
+	}
+	c.blacklists.Add(header.ParentHash, m)
+	return m, nil
+}
+
+func (c *Npos) CreateEvmExtraValidator(header *types.Header, parentState *state.StateDB) types.EvmExtraValidator {
+	blacks, err := c.getBlacklist(header, parentState)
+	if err != nil {
+		log.Error("getBlacklist failed", "err", err)
+		return nil
+	}
+	rules, err := c.getEventCheckRules(header, parentState)
+	if err != nil {
+		log.Error("getEventCheckRules failed", "err", err)
+		return nil
+	}
+	return &blacklistValidator{
+		blacks: blacks,
+		rules:  rules,
+	}
+}
+
+func (c *Npos) getEventCheckRules(header *types.Header, parentState *state.StateDB) (map[common.Hash]*EventCheckRule, error) {
+	defer func(start time.Time) {
+		getRulesTimer.UpdateSince(start)
+	}(time.Now())
+
+	if v, ok := c.eventCheckRules.Get(header.ParentHash); ok {
+		return v.(map[common.Hash]*EventCheckRule), nil
+	}
+
+	c.rulesLock.Lock()
+	defer c.rulesLock.Unlock()
+	if v, ok := c.eventCheckRules.Get(header.ParentHash); ok {
+		return v.(map[common.Hash]*EventCheckRule), nil
+	}
+
+	// if the last updates is long ago, we don't need to get blacklist from the contract.
+	num := header.Number.Uint64()
+	lastUpdated := lastRulesUpdatedNumber(parentState)
+	if num >= 2 && num > lastUpdated+1 {
+		parent := c.chain.GetHeader(header.ParentHash, num-1)
+		if parent != nil {
+			if v, ok := c.eventCheckRules.Get(parent.ParentHash); ok {
+				m := v.(map[common.Hash]*EventCheckRule)
+				c.eventCheckRules.Add(header.ParentHash, m)
+				return m, nil
+			}
+		} else {
+			log.Error("Unexpected error when getEventCheckRules, can not get parent from chain", "number", num, "blockHash", header.Hash(), "parentHash", header.ParentHash)
+		}
+	}
+
+	// can't get blacklist from cache, try to call the contract
+	alABI := c.abi[systemcontract.AddressListContractName]
+	method := "getRuleByIndex"
+	get := func(i uint32) (common.Hash, int, common.AddressCheckType, error) {
+		ret, err := c.commonCallContract(header, parentState, alABI, systemcontract.AddressListContractAddr, method, 3, i)
+		if err != nil {
+			return common.Hash{}, 0, common.CheckNone, err
+		}
+		sig := ret[0].([32]byte)
+		idx := ret[1].(*big.Int).Uint64()
+		ct := ret[2].(uint8)
+
+		return sig, int(idx), common.AddressCheckType(ct), nil
+	}
+
+	cnt, err := c.getEventCheckRulesLen(header, parentState)
+	if err != nil {
+		log.Error("getEventCheckRulesLen failed", "err", err)
+		return nil, err
+	}
+	rules := make(map[common.Hash]*EventCheckRule)
+	for i := 0; i < cnt; i++ {
+		sig, idx, ct, err := get(uint32(i))
+		if err != nil {
+			log.Error("getRuleByIndex failed", "index", i, "number", num, "blockHash", header.Hash(), "err", err)
+			return nil, err
+		}
+		rule, exist := rules[sig]
+		if !exist {
+			rule = &EventCheckRule{
+				EventSig: sig,
+				Checks:   make(map[int]common.AddressCheckType),
+			}
+			rules[sig] = rule
+		}
+		rule.Checks[idx] = ct
+	}
+
+	c.eventCheckRules.Add(header.ParentHash, rules)
+	return rules, nil
+}
+
+func (c *Npos) getEventCheckRulesLen(header *types.Header, parentState *state.StateDB) (int, error) {
+	ret, err := c.commonCallContract(header, parentState, c.abi[systemcontract.AddressListContractName], systemcontract.AddressListContractAddr, "rulesLen", 1)
+	if err != nil {
+		return 0, err
+	}
+	ln, ok := ret[0].(uint32)
+	if !ok {
+		return 0, fmt.Errorf("unexpected output type, value: %v", ret[0])
+	}
+	return int(ln), nil
+}
+
+func (c *Npos) commonCallContract(header *types.Header, statedb *state.StateDB, contractABI abi.ABI, addr common.Address, method string, expectResultLen int, args ...interface{}) ([]interface{}, error) {
+	data, err := contractABI.Pack(method, args...)
+	if err != nil {
+		log.Error("Can't pack data ", "method", method, "err", err)
+		return nil, err
+	}
+
+	msg := vmcaller.NewLegacyMessage(header.Coinbase, &addr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+
+	// Note: It's safe to use minimalChainContext for executing AddressListContract
+	result, err := vmcaller.ExecuteMsg(msg, statedb, header, newMinimalChainContext(c), c.chainConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// unpack data
+	ret, err := contractABI.Unpack(method, result)
+	if err != nil {
+		return nil, err
+	}
+	if len(ret) != expectResultLen {
+		return nil, errors.New("invalid result length")
+	}
+	return ret, nil
+}
+
+// Since the state variables are as follow:
+//    bool public initialized;
+//    bool public enabled;
+//    address public admin;
+//    address public pendingAdmin;
+//    mapping(address => bool) private devs;
+//
+// according to [Layout of State Variables in Storage](https://docs.soliditylang.org/en/v0.8.4/internals/layout_in_storage.html),
+// and after optimizer enabled, the `initialized`, `enabled` and `admin` will be packed, and stores at slot 0,
+// `pendingAdmin` stores at slot 1, and the position for `devs` is 2.
+func isDeveloperVerificationEnabled(state consensus.StateReader) bool {
+	compactValue := state.GetState(systemcontract.AddressListContractAddr, common.Hash{})
+	// Layout of slot 0:
+	// [0   -    9][10-29][  30   ][    31     ]
+	// [zero bytes][admin][enabled][initialized]
+	enabledByte := compactValue.Bytes()[common.HashLength-2]
+	return enabledByte == 0x01
+}
+
+func calcSlotOfDevMappingKey(addr common.Address) common.Hash {
+	p := make([]byte, common.HashLength)
+	binary.BigEndian.PutUint16(p[common.HashLength-2:], uint16(systemcontract.DevMappingPosition))
+	return crypto.Keccak256Hash(addr.Hash().Bytes(), p)
+}
+
+func lastBlacklistUpdatedNumber(state consensus.StateReader) uint64 {
+	value := state.GetState(systemcontract.AddressListContractAddr, systemcontract.BlackLastUpdatedNumberPosition)
+	return value.Big().Uint64()
+}
+
+func lastRulesUpdatedNumber(state consensus.StateReader) uint64 {
+	value := state.GetState(systemcontract.AddressListContractAddr, systemcontract.RulesLastUpdatedNumberPosition)
+	return value.Big().Uint64()
 }
