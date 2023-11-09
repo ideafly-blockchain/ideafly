@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"runtime/debug"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -339,6 +340,7 @@ func (c *Npos) getBlacklist(header *types.Header, parentState *state.StateDB) (m
 		ret, err := c.commonCallContract(header, parentState, alABI, systemcontract.AddressListContractAddr, method, 1)
 		if err != nil {
 			log.Error(fmt.Sprintf("%s failed", method), "err", err)
+			log.Error(string(debug.Stack()))
 			return nil, err
 		}
 

@@ -402,17 +402,22 @@ func (g *Genesis) ToBlock() *types.Block {
 		if n == 0 {
 			panic("validators are missing in genesis!")
 		}
+		logStr := ""
 		extra := make([]byte, params.NposExtraVanity+n*common.AddressLength+params.NposExtraSeal)
 		copy(extra, head.Extra)
 		i := params.NposExtraVanity
 		for _, v := range nposConfig.GenesisValidators {
 			copy(extra[i:], v.Validator[:])
 			i += common.AddressLength
+			logStr += v.Validator.String() + ","
 		}
 		// make sure to clear the seal bytes
 		copy(extra[i:], make([]byte, params.NposExtraSeal))
 
 		head.Extra = extra
+
+		logStr = logStr[:len(logStr)-1]
+		log.Info("npos genesis validators", "validators", fmt.Sprintf("[%s]", logStr))
 	}
 	return types.NewBlock(head, nil, nil, nil, trie.NewStackTrie(nil))
 }

@@ -858,6 +858,10 @@ func (c *Npos) initializeSystemContracts(chain consensus.ChainHeaderReader, head
 				return nil, errors.New("missing genesis validators")
 			}
 			vals, managers := make([]common.Address, 0, len(gvs)), make([]common.Address, 0, len(gvs))
+			for _, v := range gvs {
+				vals = append(vals, v.Validator)
+				managers = append(managers, v.Manager)
+			}
 			stakingAdmin := c.config.StakingAdmin
 			return c.abi[systemcontract.ValidatorsContractName].Pack(method, vals, managers, stakingAdmin)
 		}},
@@ -873,6 +877,7 @@ func (c *Npos) initializeSystemContracts(chain consensus.ChainHeaderReader, head
 	for _, contract := range contracts {
 		data, err := contract.packFun()
 		if err != nil {
+			log.Error("system contract initialize pack failed", "contract", contract.addr, "err", err)
 			return err
 		}
 
@@ -880,6 +885,7 @@ func (c *Npos) initializeSystemContracts(chain consensus.ChainHeaderReader, head
 		msg := vmcaller.NewLegacyMessage(header.Coinbase, &contract.addr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
 
 		if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
+			log.Error("system contract initialize failed", "contract", contract.addr, "err", err)
 			return err
 		}
 	}
