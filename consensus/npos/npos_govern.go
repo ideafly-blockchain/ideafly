@@ -223,6 +223,10 @@ func (c *Npos) IsSysTransaction(sender common.Address, tx *types.Transaction, he
 	}
 
 	to := tx.To()
+	if sender == header.Coinbase && *to == systemcontract.SysGovToAddr && tx.GasPrice().Sign() == 0 {
+		return true, nil
+	}
+	// Make sure the miner can NOT call the system contract through a normal transaction.
 	if sender == header.Coinbase && *to == systemcontract.SysGovContractAddr {
 		return true, nil
 	}
