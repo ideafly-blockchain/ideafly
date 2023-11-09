@@ -81,7 +81,6 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		vmenv.Context.ExtraValidator = posa.CreateEvmExtraValidator(header, statedb)
 	}
 
-	signer := types.MakeSigner(p.config, header.Number)
 	commonTxs := make([]*types.Transaction, 0, len(block.Transactions()))
 	systemTxs := make([]*types.Transaction, 0)
 	// Iterate over and process the individual transactions
