@@ -2,6 +2,15 @@
 # with Go source code. If you know what GOPATH is then you probably
 # don't need to bother with make.
 
+# ====variables about cross compile====
+BIN_REVISION_STRING := $(shell git show -s --pretty=format:%h)
+GIT_TIME := $(shell git show -s --pretty=format:%cI)
+GO_PROXY := $(shell go env GOPROXY)
+DEST_DIR = ./build/bin
+BINARY_NAME_PREFIX = geth
+ENTRY_FILE_GETH_DIR = github.com/ethereum/go-ethereum/cmd/geth
+# ====end of variables about cross compile====
+
 .PHONY: geth android ios evm all test clean
 
 GOBIN = ./build/bin
@@ -48,3 +57,10 @@ devtools:
 	env GOBIN= go install ./cmd/abigen
 	@type "solc" 2> /dev/null || echo 'Please install solc'
 	@type "protoc" 2> /dev/null || echo 'Please install protoc'
+
+crosstools:
+	GO111MODULE=off go install github.com/stars-labs/xgo2
+
+build_linux_amd64:
+	xgo2 --goproxy="${GO_PROXY}" --targets=linux/amd64 -ldflags "-s -w -X 'main.gitCommit=${BIN_REVISION_STRING}' -X 'main.gitDate=${GIT_TIME}'" -dest=${DEST_DIR} -out ${BINARY_NAME_PREFIX} --pkg=${ENTRY_FILE_GETH_DIR} .
+	@echo "The output binary file: $(DEST_DIR)/${BINARY_NAME_PREFIX}-linux-amd64"
