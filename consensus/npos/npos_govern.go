@@ -284,8 +284,7 @@ func (c *Npos) CanCreate(state consensus.StateReader, addr common.Address, heigh
 // ValidateTx do a consensus-related validation on the given transaction at the given header and state.
 // the parentState must be the state of the header's parent block.
 func (c *Npos) ValidateTx(sender common.Address, tx *types.Transaction, header *types.Header, parentState *state.StateDB) error {
-	// Must use the parent state for current validation,
-	// so we must starting the validation after redCoastBlock
+	// Must use the parent state for current validation
 	m, err := c.getBlacklist(header, parentState)
 	if err != nil {
 		return err
