@@ -19,8 +19,10 @@ package core
 import (
 	"fmt"
 	"math/big"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/gopool"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -46,6 +48,18 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 		config: config,
 		bc:     bc,
 		engine: engine,
+	}
+}
+
+type ProcessOption struct {
+	bloomWg *sync.WaitGroup
+}
+
+type ModifyProcessOptionFunc func(opt *ProcessOption)
+
+func CreatingBloomParallel(wg *sync.WaitGroup) ModifyProcessOptionFunc {
+	return func(opt *ProcessOption) {
+		opt.bloomWg = wg
 	}
 }
 
@@ -81,14 +95,21 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		vmenv.Context.ExtraValidator = posa.CreateEvmExtraValidator(header, statedb)
 	}
 
-	commonTxs := make([]*types.Transaction, 0, len(block.Transactions()))
-	systemTxs := make([]*types.Transaction, 0)
-	// Iterate over and process the individual transactions
-
 	// preload from and to of txs
 	signer := types.MakeSigner(p.config, header.Number)
 	statedb.PreloadAccounts(block, signer)
 
+	var bloomWg sync.WaitGroup
+	returnErrBeforeWaitGroup := true
+	defer func() {
+		if returnErrBeforeWaitGroup {
+			bloomWg.Wait()
+		}
+	}()
+
+	commonTxs := make([]*types.Transaction, 0, len(block.Transactions()))
+	systemTxs := make([]*types.Transaction, 0)
+	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {
 		if isPoSA {
 			sender, err := types.Sender(signer, tx)
@@ -113,7 +134,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
 		statedb.Prepare(tx.Hash(), i)
-		receipt, err := applyTransaction(msg, p.config, nil, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv)
+		receipt, err := applyTransaction(msg, p.config, nil, gp, statedb, blockNumber, blockHash, tx, usedGas, vmenv, CreatingBloomParallel(&bloomWg))
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
@@ -121,6 +142,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		allLogs = append(allLogs, receipt.Logs...)
 		commonTxs = append(commonTxs, tx)
 	}
+	bloomWg.Wait()
+	returnErrBeforeWaitGroup = false
+
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	if err := p.engine.Finalize(p.bc, header, statedb, &commonTxs, block.Uncles(), &receipts, systemTxs); err != nil {
 		return nil, nil, 0, err
@@ -129,7 +153,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	return receipts, allLogs, *usedGas, nil
 }
 
-func applyTransaction(msg types.Message, config *params.ChainConfig, author *common.Address, gp *GasPool, statedb *state.StateDB, blockNumber *big.Int, blockHash common.Hash, tx *types.Transaction, usedGas *uint64, evm *vm.EVM) (*types.Receipt, error) {
+func applyTransaction(msg types.Message, config *params.ChainConfig, author *common.Address, gp *GasPool, statedb *state.StateDB, blockNumber *big.Int, blockHash common.Hash, tx *types.Transaction, usedGas *uint64, evm *vm.EVM, modOptions ...ModifyProcessOptionFunc) (*types.Receipt, error) {
 	// Create a new context to be used in the EVM environment.
 	txContext := NewEVMTxContext(msg)
 	evm.Reset(txContext, statedb)
@@ -167,10 +191,24 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, author *com
 
 	// Set the receipt logs and create the bloom filter.
 	receipt.Logs = statedb.GetLogs(tx.Hash(), blockHash)
-	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
 	receipt.BlockHash = blockHash
 	receipt.BlockNumber = blockNumber
 	receipt.TransactionIndex = uint(statedb.TxIndex())
+
+	var processOp ProcessOption
+	for _, fun := range modOptions {
+		fun(&processOp)
+	}
+	if processOp.bloomWg == nil {
+		receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+	} else {
+		processOp.bloomWg.Add(1)
+		gopool.Submit(func() {
+			receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+			processOp.bloomWg.Done()
+		})
+	}
+
 	return receipt, err
 }
 
