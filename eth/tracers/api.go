@@ -618,8 +618,10 @@ func (api *API) traceBlock(ctx context.Context, block *types.Block, config *Trac
 	if threads > len(txs) {
 		threads = len(txs)
 	}
+	var exValidator types.EvmExtraValidator
 	if api.isPoSA {
 		_ = api.posa.PreHandle(api.backend.ChainHeaderReader(), header, statedb)
+		exValidator = api.posa.CreateEvmExtraValidator(header, statedb)
 	}
 	blockHash := block.Hash()
 	for th := 0; th < threads; th++ {
@@ -627,7 +629,7 @@ func (api *API) traceBlock(ctx context.Context, block *types.Block, config *Trac
 		go func() {
 			blockCtx := core.NewEVMBlockContext(block.Header(), api.chainContext(ctx), nil)
 			if api.isPoSA {
-				blockCtx.ExtraValidator = api.posa.CreateEvmExtraValidator(header, statedb)
+				blockCtx.ExtraValidator = exValidator
 			}
 			defer pend.Done()
 			// Fetch and execute the next transaction trace tasks
