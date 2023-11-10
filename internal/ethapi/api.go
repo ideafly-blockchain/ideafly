@@ -32,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core"
@@ -1447,6 +1448,47 @@ func AccessList(ctx context.Context, b Backend, blockNrOrHash rpc.BlockNumberOrH
 		}
 		prevTracer = tracer
 	}
+}
+
+func (s *BlockChainAPI) GetSysTransactionsByBlockNumber(ctx context.Context, number rpc.BlockNumber) ([]*RPCTransaction, error) {
+	posa, isPoSA := s.b.Engine().(consensus.PoSA)
+	if !isPoSA {
+		return nil, errors.New("not a PoSA engine")
+	}
+
+	block, err := s.b.BlockByNumber(ctx, number)
+	if err != nil || block == nil {
+		return nil, err
+	}
+	return s.getSysTransactions(block, posa)
+}
+
+func (s *BlockChainAPI) GetSysTransactionsByBlockHash(ctx context.Context, hash common.Hash) ([]*RPCTransaction, error) {
+	posa, isPoSA := s.b.Engine().(consensus.PoSA)
+	if !isPoSA {
+		return nil, errors.New("not a PoSA engine")
+	}
+	block, err := s.b.BlockByHash(ctx, hash)
+	if err != nil || block == nil {
+		return nil, err
+	}
+	return s.getSysTransactions(block, posa)
+}
+
+func (s *BlockChainAPI) getSysTransactions(block *types.Block, posa consensus.PoSA) ([]*RPCTransaction, error) {
+	header := block.Header()
+	bhash := block.Hash()
+	bnumber := block.NumberU64()
+	txs := block.Transactions()
+	transactions := make([]*RPCTransaction, 0)
+	signer := types.MakeSigner(s.b.ChainConfig(), header.Number)
+	for i, tx := range txs {
+		sender, _ := types.Sender(signer, tx)
+		if yes, _ := posa.IsSysTransaction(sender, tx, header); yes {
+			transactions = append(transactions, newRPCTransaction(tx, bhash, bnumber, uint64(i), nil, s.b.ChainConfig()))
+		}
+	}
+	return transactions, nil
 }
 
 // TransactionAPI exposes methods for reading and creating transaction data.

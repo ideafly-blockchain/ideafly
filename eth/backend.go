@@ -32,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/beacon"
 	"github.com/ethereum/go-ethereum/consensus/clique"
+	"github.com/ethereum/go-ethereum/consensus/npos"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/bloombits"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -80,6 +81,9 @@ type Ethereum struct {
 	eventMux       *event.TypeMux
 	engine         consensus.Engine
 	accountManager *accounts.Manager
+
+	isPoSA bool
+	posa   consensus.PoSA
 
 	bloomRequests     chan chan *bloombits.Retrieval // Channel receiving bloom data retrieval requests
 	bloomIndexer      *core.ChainIndexer             // Bloom indexer operating during block imports
@@ -167,6 +171,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		p2pServer:         stack.Server(),
 		shutdownTracker:   shutdowncheck.NewShutdownTracker(chainDb),
 	}
+	eth.posa, eth.isPoSA = eth.engine.(consensus.PoSA)
 
 	bcVersion := rawdb.ReadDatabaseVersion(chainDb)
 	var dbVer = "<nil>"
@@ -217,6 +222,16 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		config.TxPool.Journal = stack.ResolvePath(config.TxPool.Journal)
 	}
 	eth.txPool = core.NewTxPool(config.TxPool, chainConfig, eth.blockchain)
+
+	// do some extra work if consensus engine is congress.
+	if nposEngine, ok := eth.engine.(*npos.Npos); ok {
+		// set state fn
+		nposEngine.SetStateFn(eth.blockchain.StateAt)
+		// set consensus-related transaction validator
+		eth.txPool.InitExTxValidator(nposEngine)
+		//
+		nposEngine.SetChain(eth.blockchain)
+	}
 
 	// Permit the downloader to use the trie cache allowance during fast sync
 	cacheLimit := cacheConfig.TrieCleanLimit + cacheConfig.TrieDirtyLimit + cacheConfig.SnapshotLimit
@@ -445,22 +460,32 @@ func (s *Ethereum) StartMining(threads int) error {
 			log.Error("Cannot start mining without etherbase", "err", err)
 			return fmt.Errorf("etherbase missing: %v", err)
 		}
-		var cli *clique.Clique
-		if c, ok := s.engine.(*clique.Clique); ok {
-			cli = c
-		} else if cl, ok := s.engine.(*beacon.Beacon); ok {
-			if c, ok := cl.InnerEngine().(*clique.Clique); ok {
-				cli = c
-			}
-		}
-		if cli != nil {
+		if npos, ok := s.engine.(*npos.Npos); ok {
 			wallet, err := s.accountManager.Find(accounts.Account{Address: eb})
 			if wallet == nil || err != nil {
 				log.Error("Etherbase account unavailable locally", "err", err)
 				return fmt.Errorf("signer missing: %v", err)
 			}
-			cli.Authorize(eb, wallet.SignData)
+			npos.Authorize(eb, wallet.SignData, wallet.SignTx)
+		} else {
+			var cli *clique.Clique
+			if c, ok := s.engine.(*clique.Clique); ok {
+				cli = c
+			} else if cl, ok := s.engine.(*beacon.Beacon); ok {
+				if c, ok := cl.InnerEngine().(*clique.Clique); ok {
+					cli = c
+				}
+			}
+			if cli != nil {
+				wallet, err := s.accountManager.Find(accounts.Account{Address: eb})
+				if wallet == nil || err != nil {
+					log.Error("Etherbase account unavailable locally", "err", err)
+					return fmt.Errorf("signer missing: %v", err)
+				}
+				cli.Authorize(eb, wallet.SignData)
+			}
 		}
+
 		// If mining is started, we can disable the transaction rejection mechanism
 		// introduced to speed sync times.
 		atomic.StoreUint32(&s.handler.acceptTxs, 1)

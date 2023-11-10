@@ -58,7 +58,7 @@ func NewStateProcessor(config *params.ChainConfig, bc *BlockChain, engine consen
 // transactions failed to execute due to insufficient gas it will return an error.
 func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg vm.Config) (types.Receipts, []*types.Log, uint64, error) {
 	var (
-		receipts    types.Receipts
+		receipts    = make([]*types.Receipt, 0)
 		usedGas     = new(uint64)
 		header      = block.Header()
 		blockHash   = block.Hash()
@@ -72,6 +72,17 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 	blockContext := NewEVMBlockContext(header, p.bc, nil)
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, p.config, cfg)
+
+	posa, isPoSA := p.engine.(consensus.PoSA)
+	if isPoSA {
+		if err := posa.PreHandle(p.bc, header, statedb); err != nil {
+			return nil, nil, 0, err
+		}
+		vmenv.Context.ExtraValidator = posa.CreateEvmExtraValidator(header, statedb)
+	}
+
+	commonTxs := make([]*types.Transaction, 0, len(block.Transactions()))
+	systemTxs := make([]*types.Transaction, 0)
 	// Iterate over and process the individual transactions
 
 	// preload from and to of txs
@@ -79,6 +90,24 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	statedb.PreloadAccounts(block, signer)
 
 	for i, tx := range block.Transactions() {
+		if isPoSA {
+			sender, err := types.Sender(signer, tx)
+			if err != nil {
+				return nil, nil, 0, err
+			}
+			ok, err := posa.IsSysTransaction(sender, tx, header)
+			if err != nil {
+				return nil, nil, 0, err
+			}
+			if ok {
+				systemTxs = append(systemTxs, tx)
+				continue
+			}
+			err = posa.ValidateTx(sender, tx, header, statedb)
+			if err != nil {
+				return nil, nil, 0, err
+			}
+		}
 		msg, err := tx.AsMessage(types.MakeSigner(p.config, header.Number), header.BaseFee)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
@@ -90,9 +119,12 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		}
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
+		commonTxs = append(commonTxs, tx)
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-	p.engine.Finalize(p.bc, header, statedb, block.Transactions(), block.Uncles())
+	if err := p.engine.Finalize(p.bc, header, statedb, &commonTxs, block.Uncles(), &receipts, systemTxs); err != nil {
+		return nil, nil, 0, err
+	}
 
 	return receipts, allLogs, *usedGas, nil
 }
@@ -146,13 +178,14 @@ func applyTransaction(msg types.Message, config *params.ChainConfig, author *com
 // and uses the input parameters for its environment. It returns the receipt
 // for the transaction, gas used and an error if the transaction failed,
 // indicating the block was invalid.
-func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config) (*types.Receipt, error) {
+func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb *state.StateDB, header *types.Header, tx *types.Transaction, usedGas *uint64, cfg vm.Config, extraValidator types.EvmExtraValidator) (*types.Receipt, error) {
 	msg, err := tx.AsMessage(types.MakeSigner(config, header.Number), header.BaseFee)
 	if err != nil {
 		return nil, err
 	}
 	// Create a new context to be used in the EVM environment
 	blockContext := NewEVMBlockContext(header, bc, author)
+	blockContext.ExtraValidator = extraValidator
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, config, cfg)
 	return applyTransaction(msg, config, author, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv)
 }

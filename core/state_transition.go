@@ -23,6 +23,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	cmath "github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -321,6 +322,13 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	if rules.IsBerlin {
 		st.state.PrepareAccessList(msg.From(), msg.To(), vm.ActivePrecompiles(rules), msg.AccessList())
 	}
+	// Check if can create
+	if contractCreation && st.evm.Context.CanCreate != nil {
+		if !st.evm.Context.CanCreate(st.evm.StateDB, msg.From(), st.evm.Context.BlockNumber) {
+			return nil, ErrUnauthorizedDeveloper
+		}
+	}
+
 	var (
 		ret   []byte
 		vmerr error // vm errors do not effect consensus and are therefore not assigned to err
@@ -349,6 +357,10 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		// Skip fee payment when NoBaseFee is set and the fee fields
 		// are 0. This avoids a negative effectiveTip being applied to
 		// the coinbase when simulating calls.
+	} else if st.evm.ChainConfig().Npos != nil {
+		fee := new(big.Int).SetUint64(st.gasUsed())
+		fee.Mul(fee, st.gasPrice)
+		st.state.AddBalance(consensus.FeeRecoder, fee)
 	} else {
 		fee := new(big.Int).SetUint64(st.gasUsed())
 		fee.Mul(fee, effectiveTip)

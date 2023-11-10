@@ -169,14 +169,24 @@ func (eth *Ethereum) stateAtTransaction(block *types.Block, txIndex int, reexec 
 	if parent == nil {
 		return nil, vm.BlockContext{}, nil, fmt.Errorf("parent %#x not found", block.ParentHash())
 	}
+	var (
+		extraValidator types.EvmExtraValidator
+		header         = block.Header()
+	)
 	// Lookup the statedb of parent block from the live database,
 	// otherwise regenerate it on the flight.
 	statedb, err := eth.StateAtBlock(parent, reexec, nil, true, false)
+	if err == nil && eth.isPoSA {
+		err = eth.posa.PreHandle(eth.blockchain, header, statedb)
+	}
 	if err != nil {
 		return nil, vm.BlockContext{}, nil, err
 	}
 	if txIndex == 0 && len(block.Transactions()) == 0 {
 		return nil, vm.BlockContext{}, statedb, nil
+	}
+	if eth.isPoSA {
+		extraValidator = eth.posa.CreateEvmExtraValidator(header, statedb)
 	}
 	// Recompute transactions up to the target index.
 	signer := types.MakeSigner(eth.blockchain.Config(), block.Number())
@@ -185,11 +195,23 @@ func (eth *Ethereum) stateAtTransaction(block *types.Block, txIndex int, reexec 
 		msg, _ := tx.AsMessage(signer, block.BaseFee())
 		txContext := core.NewEVMTxContext(msg)
 		context := core.NewEVMBlockContext(block.Header(), eth.blockchain, nil)
+		context.ExtraValidator = extraValidator
 		if idx == txIndex {
 			return msg, context, statedb, nil
 		}
 		// Not yet the searched for transaction, execute on top of the current state
 		vmenv := vm.NewEVM(context, txContext, statedb, eth.blockchain.Config(), vm.Config{})
+		if eth.isPoSA {
+			sender, _ := types.Sender(signer, tx)
+			ok, _ := eth.posa.IsSysTransaction(sender, tx, header)
+			if ok {
+				context.ExtraValidator = nil
+				if _, _, err := eth.posa.ApplySysTx(vmenv, statedb, idx, sender, tx); err != nil {
+					return nil, vm.BlockContext{}, nil, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), err)
+				}
+				continue
+			}
+		}
 		statedb.Prepare(tx.Hash(), idx)
 		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); err != nil {
 			return nil, vm.BlockContext{}, nil, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), err)
