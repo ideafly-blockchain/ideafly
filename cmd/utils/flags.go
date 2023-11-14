@@ -977,6 +977,11 @@ var (
 		Value:    metrics.DefaultConfig.InfluxDBOrganization,
 		Category: flags.MetricsCategory,
 	}
+	// TraceActionFlag is the flag for internal tx
+	TraceActionFlag = &cli.BoolFlag{
+		Name:  "traceaction",
+		Usage: "Trace internal tx call/create/suicide action",
+	}
 )
 
 var (
@@ -1736,6 +1741,9 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	}
 	if ctx.IsSet(LightServeFlag.Name) && ctx.Uint64(TxLookupLimitFlag.Name) != 0 {
 		log.Warn("LES server cannot serve old transaction status and cannot connect below les/4 protocol version if transaction lookup index is limited")
+	}
+	if ctx.IsSet(TraceActionFlag.Name) {
+		cfg.TraceAction = ctx.Bool(TraceActionFlag.Name)
 	}
 	var ks *keystore.KeyStore
 	if keystores := stack.AccountManager().Backends(keystore.KeyStoreType); len(keystores) > 0 {
