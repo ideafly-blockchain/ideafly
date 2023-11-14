@@ -17,6 +17,8 @@
 package tests
 
 import (
+	"math/rand"
+	"runtime"
 	"testing"
 )
 
