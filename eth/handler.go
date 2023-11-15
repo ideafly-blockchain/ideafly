@@ -607,6 +607,7 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 		// Send the block to a subset of our peers
 		transfer := peers[:int(math.Sqrt(float64(len(peers))))]
 		for _, peer := range transfer {
+			log.Info("metric", "method", "broadcastBlock", "peer", peer.ID(), "hash", block.Header().Hash().String(), "number", block.Header().Number.Uint64(), "fullBlock", true)
 			peer.AsyncSendNewBlock(block, td)
 		}
 		log.Trace("Propagated block", "hash", hash, "recipients", len(transfer), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
@@ -615,6 +616,7 @@ func (h *handler) BroadcastBlock(block *types.Block, propagate bool) {
 	// Otherwise if the block is indeed in out own chain, announce it
 	if h.chain.HasBlock(hash, block.NumberU64()) {
 		for _, peer := range peers {
+			log.Info("metric", "method", "broadcastBlock", "peer", peer.ID(), "hash", block.Header().Hash().String(), "number", block.Header().Number.Uint64(), "fullBlock", false)
 			peer.AsyncSendNewBlockHash(block)
 		}
 		log.Trace("Announced block", "hash", hash, "recipients", len(peers), "duration", common.PrettyDuration(time.Since(block.ReceivedAt)))
