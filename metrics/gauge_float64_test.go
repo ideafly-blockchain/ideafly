@@ -44,7 +44,7 @@ func TestGaugeFloat64Snapshot(t *testing.T) {
 	g.Update(47.0)
 	snapshot := g.Snapshot()
 	g.Update(float64(0))
-	if v := snapshot.Value(); 47.0 != v {
+	if v := snapshot.Value(); v != 47.0 {
 		t.Errorf("g.Value(): 47.0 != %v\n", v)
 	}
 }
