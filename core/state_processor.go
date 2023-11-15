@@ -153,6 +153,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		if cfg.TraceAction {
 			actions, _ := tracer.GetResult()
 			if len(actions) > 0 {
+				if receipt.Status == types.ReceiptStatusFailed {
+					for _, action := range actions {
+						action.Success = false
+					}
+				}
 				internalTxs = append(internalTxs, &types.InternalTx{
 					TxHash:  tx.Hash(),
 					Actions: actions,
