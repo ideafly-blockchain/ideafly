@@ -797,6 +797,10 @@ web3._extend({
 			call: 'txpool_contentFrom',
 			params: 1,
 		}),
+		new web3._extend.Property({
+			name: 'jamIndex',
+			getter: 'txpool_jamIndex'
+		}),
 	]
 });
 `
