@@ -37,7 +37,7 @@ var RunFlag = &cli.StringFlag{
 var blockTestCommand = &cli.Command{
 	Action:    blockTestCmd,
 	Name:      "blocktest",
-	Usage:     "executes the given blockchain tests",
+	Usage:     "Executes the given blockchain tests",
 	ArgsUsage: "<file>",
 	Flags:     []cli.Flag{RunFlag},
 }
