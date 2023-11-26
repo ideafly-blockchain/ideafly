@@ -28,7 +28,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/beacon"
-	"github.com/ethereum/go-ethereum/consensus/clique"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/consensus/npos"
 	"github.com/ethereum/go-ethereum/core"
@@ -227,9 +226,6 @@ func CreateConsensusEngine(stack *node.Node, chainConfig *params.ChainConfig, co
 	if chainConfig.Npos != nil {
 		engine = npos.New(chainConfig, db)
 		return engine
-	}
-	if chainConfig.Clique != nil {
-		engine = clique.New(chainConfig.Clique, db)
 	} else {
 		switch config.PowMode {
 		case ethash.ModeFake:

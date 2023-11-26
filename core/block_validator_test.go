@@ -23,15 +23,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/beacon"
-	"github.com/ethereum/go-ethereum/consensus/clique"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -83,11 +80,10 @@ func TestHeaderVerification(t *testing.T) {
 	}
 }
 
-func TestHeaderVerificationForMergingClique(t *testing.T) { testHeaderVerificationForMerging(t, true) }
-func TestHeaderVerificationForMergingEthash(t *testing.T) { testHeaderVerificationForMerging(t, false) }
+func TestHeaderVerificationForMergingEthash(t *testing.T) { testHeaderVerificationForMerging(t) }
 
 // Tests the verification for eth1/2 merging, including pre-merge and post-merge
-func testHeaderVerificationForMerging(t *testing.T, isClique bool) {
+func testHeaderVerificationForMerging(t *testing.T) {
 	var (
 		testdb      = rawdb.NewMemoryDatabase()
 		preBlocks   []*types.Block
@@ -96,63 +92,23 @@ func testHeaderVerificationForMerging(t *testing.T, isClique bool) {
 		chainConfig *params.ChainConfig
 		merger      = consensus.NewMerger(rawdb.NewMemoryDatabase())
 	)
-	if isClique {
-		var (
-			key, _ = crypto.HexToECDSA("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
-			addr   = crypto.PubkeyToAddress(key.PublicKey)
-			engine = clique.New(params.AllCliqueProtocolChanges.Clique, testdb)
-		)
-		genspec := &Genesis{
-			ExtraData: make([]byte, 32+common.AddressLength+crypto.SignatureLength),
-			Alloc: map[common.Address]GenesisAccount{
-				addr: {Balance: big.NewInt(1)},
-			},
-			BaseFee:    big.NewInt(params.InitialBaseFee),
-			Difficulty: new(big.Int),
-		}
-		copy(genspec.ExtraData[32:], addr[:])
-		genesis := genspec.MustCommit(testdb)
 
-		genEngine := beacon.New(engine)
-		preBlocks, _ = GenerateChain(params.AllCliqueProtocolChanges, genesis, genEngine, testdb, 8, nil)
-		td := 0
-		for i, block := range preBlocks {
-			header := block.Header()
-			if i > 0 {
-				header.ParentHash = preBlocks[i-1].Hash()
-			}
-			header.Extra = make([]byte, 32+crypto.SignatureLength)
-			header.Difficulty = big.NewInt(2)
+	gspec := &Genesis{Config: params.TestChainConfig}
+	genesis := gspec.MustCommit(testdb)
+	genEngine := beacon.New(ethash.NewFaker())
 
-			sig, _ := crypto.Sign(genEngine.SealHash(header).Bytes(), key)
-			copy(header.Extra[len(header.Extra)-crypto.SignatureLength:], sig)
-			preBlocks[i] = block.WithSeal(header)
-			// calculate td
-			td += int(block.Difficulty().Uint64())
-		}
-		config := *params.AllCliqueProtocolChanges
-		config.TerminalTotalDifficulty = big.NewInt(int64(td))
-		postBlocks, _ = GenerateChain(&config, preBlocks[len(preBlocks)-1], genEngine, testdb, 8, nil)
-		chainConfig = &config
-		runEngine = beacon.New(engine)
-	} else {
-		gspec := &Genesis{Config: params.TestChainConfig}
-		genesis := gspec.MustCommit(testdb)
-		genEngine := beacon.New(ethash.NewFaker())
-
-		preBlocks, _ = GenerateChain(params.TestChainConfig, genesis, genEngine, testdb, 8, nil)
-		td := 0
-		for _, block := range preBlocks {
-			// calculate td
-			td += int(block.Difficulty().Uint64())
-		}
-		config := *params.TestChainConfig
-		config.TerminalTotalDifficulty = big.NewInt(int64(td))
-		postBlocks, _ = GenerateChain(params.TestChainConfig, preBlocks[len(preBlocks)-1], genEngine, testdb, 8, nil)
-
-		chainConfig = &config
-		runEngine = beacon.New(ethash.NewFaker())
+	preBlocks, _ = GenerateChain(params.TestChainConfig, genesis, genEngine, testdb, 8, nil)
+	td := 0
+	for _, block := range preBlocks {
+		// calculate td
+		td += int(block.Difficulty().Uint64())
 	}
+	config := *params.TestChainConfig
+	config.TerminalTotalDifficulty = big.NewInt(int64(td))
+	postBlocks, _ = GenerateChain(params.TestChainConfig, preBlocks[len(preBlocks)-1], genEngine, testdb, 8, nil)
+
+	chainConfig = &config
+	runEngine = beacon.New(ethash.NewFaker())
 
 	preHeaders := make([]*types.Header, len(preBlocks))
 	for i, block := range preBlocks {

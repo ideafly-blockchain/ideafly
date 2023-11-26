@@ -27,7 +27,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/clique"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -37,6 +36,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/miner/test"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -53,7 +53,7 @@ var (
 	// Test chain configurations
 	testTxPoolConfig  core.TxPoolConfig
 	ethashChainConfig *params.ChainConfig
-	cliqueChainConfig *params.ChainConfig
+	testChainConfig   *params.ChainConfig
 
 	// Test accounts
 	testBankKey, _  = crypto.GenerateKey()
@@ -78,9 +78,9 @@ func init() {
 	testTxPoolConfig.Journal = ""
 	ethashChainConfig = new(params.ChainConfig)
 	*ethashChainConfig = *params.TestChainConfig
-	cliqueChainConfig = new(params.ChainConfig)
-	*cliqueChainConfig = *params.TestChainConfig
-	cliqueChainConfig.Clique = &params.CliqueConfig{
+	testChainConfig = new(params.ChainConfig)
+	*testChainConfig = *params.TestChainConfig
+	testChainConfig.Clique = &params.CliqueConfig{
 		Period: 10,
 		Epoch:  30000,
 	}
@@ -124,7 +124,7 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 	}
 
 	switch e := engine.(type) {
-	case *clique.Clique:
+	case *test.TestEngine:
 		gspec.ExtraData = make([]byte, 32+common.AddressLength+crypto.SignatureLength)
 		copy(gspec.ExtraData[32:32+common.AddressLength], testBankAddress.Bytes())
 		e.Authorize(testBankAddress, func(account accounts.Account, s string, data []byte) ([]byte, error) {
@@ -214,16 +214,16 @@ func TestGenerateBlockAndImportClique(t *testing.T) {
 	testGenerateBlockAndImport(t, true)
 }
 
-func testGenerateBlockAndImport(t *testing.T, isClique bool) {
+func testGenerateBlockAndImport(t *testing.T, isTestEngine bool) {
 	var (
 		engine      consensus.Engine
 		chainConfig *params.ChainConfig
 		db          = rawdb.NewMemoryDatabase()
 	)
-	if isClique {
+	if isTestEngine {
 		chainConfig = params.AllCliqueProtocolChanges
 		chainConfig.Clique = &params.CliqueConfig{Period: 1, Epoch: 30000}
-		engine = clique.New(chainConfig.Clique, db)
+		engine = test.NewEngine(chainConfig.Clique, db)
 	} else {
 		chainConfig = params.AllEthashProtocolChanges
 		engine = ethash.NewFaker()
@@ -273,7 +273,7 @@ func TestEmptyWorkEthash(t *testing.T) {
 	testEmptyWork(t, ethashChainConfig, ethash.NewFaker())
 }
 func TestEmptyWorkClique(t *testing.T) {
-	testEmptyWork(t, cliqueChainConfig, clique.New(cliqueChainConfig.Clique, rawdb.NewMemoryDatabase()))
+	testEmptyWork(t, testChainConfig, test.NewEngine(testChainConfig.Clique, rawdb.NewMemoryDatabase()))
 }
 
 func testEmptyWork(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {
@@ -377,7 +377,7 @@ func TestRegenerateMiningBlockEthash(t *testing.T) {
 }
 
 func TestRegenerateMiningBlockClique(t *testing.T) {
-	testRegenerateMiningBlock(t, cliqueChainConfig, clique.New(cliqueChainConfig.Clique, rawdb.NewMemoryDatabase()))
+	testRegenerateMiningBlock(t, testChainConfig, test.NewEngine(testChainConfig.Clique, rawdb.NewMemoryDatabase()))
 }
 
 func testRegenerateMiningBlock(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {
@@ -437,7 +437,7 @@ func TestAdjustIntervalEthash(t *testing.T) {
 }
 
 func TestAdjustIntervalClique(t *testing.T) {
-	testAdjustInterval(t, cliqueChainConfig, clique.New(cliqueChainConfig.Clique, rawdb.NewMemoryDatabase()))
+	testAdjustInterval(t, testChainConfig, test.NewEngine(testChainConfig.Clique, rawdb.NewMemoryDatabase()))
 }
 
 func testAdjustInterval(t *testing.T, chainConfig *params.ChainConfig, engine consensus.Engine) {
@@ -531,7 +531,7 @@ func TestGetSealingWorkEthash(t *testing.T) {
 }
 
 func TestGetSealingWorkClique(t *testing.T) {
-	testGetSealingWork(t, cliqueChainConfig, clique.New(cliqueChainConfig.Clique, rawdb.NewMemoryDatabase()), false)
+	testGetSealingWork(t, testChainConfig, test.NewEngine(testChainConfig.Clique, rawdb.NewMemoryDatabase()), false)
 }
 
 func TestGetSealingWorkPostMerge(t *testing.T) {
@@ -566,8 +566,8 @@ func testGetSealingWork(t *testing.T, chainConfig *params.ChainConfig, engine co
 		if len(block.Uncles()) != 0 {
 			t.Error("Unexpected uncle block")
 		}
-		_, isClique := engine.(*clique.Clique)
-		if !isClique {
+		_, isTestEngine := engine.(*test.TestEngine)
+		if !isTestEngine {
 			if len(block.Extra()) != 0 {
 				t.Error("Unexpected extra field")
 			}
@@ -579,7 +579,7 @@ func testGetSealingWork(t *testing.T, chainConfig *params.ChainConfig, engine co
 				t.Error("Unexpected coinbase")
 			}
 		}
-		if !isClique {
+		if !isTestEngine {
 			if block.MixDigest() != random {
 				t.Error("Unexpected mix digest")
 			}
