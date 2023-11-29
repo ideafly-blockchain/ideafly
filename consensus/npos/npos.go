@@ -103,7 +103,7 @@ var (
 	errExtraValidators = errors.New("non-checkpoint block contains extra validator list")
 
 	// errInvalidExtraValidators is returned if validator data in extra-data field is invalid.
-	errInvalidExtraValidators = errors.New("Invalid extra validators in extra data field")
+	errInvalidExtraValidators = errors.New("invalid extra validators in extra data field")
 
 	// errInvalidCheckpointValidators is returned if a checkpoint block contains an
 	// invalid list of validators (i.e. non divisible by 20 bytes).
@@ -319,7 +319,7 @@ func (c *Npos) verifyHeader(chain consensus.ChainHeaderReader, header *types.Hea
 	}
 	// Ensure that the validator bytes length is valid
 	if isEpoch && validatorsBytes%common.AddressLength != 0 {
-		return errExtraValidators
+		return errInvalidCheckpointValidators
 	}
 
 	// Ensure that the mix digest is zero as we don't have fork protection currently
@@ -628,7 +628,7 @@ func (c *Npos) Finalize(chain consensus.ChainHeaderReader, header *types.Header,
 
 	// do epoch thing at the end, because it will update active validators
 	if header.Number.Uint64()%c.config.Epoch == 0 {
-		newValidators, err := c.doSomethingAtEpoch(chain, header, state)
+		newValidators, err := c.syncWithSysContractAtEpoch(chain, header, state)
 		if err != nil {
 			return err
 		}
@@ -640,7 +640,7 @@ func (c *Npos) Finalize(chain consensus.ChainHeaderReader, header *types.Header,
 
 		extraSuffix := len(header.Extra) - extraSeal
 		if !bytes.Equal(header.Extra[extraVanity:extraSuffix], validatorsBytes) {
-			return errInvalidExtraValidators
+			return errMismatchingCheckpointValidators
 		}
 	}
 
@@ -712,7 +712,7 @@ func (c *Npos) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *ty
 
 	// do epoch thing at the end, because it will update active validators
 	if header.Number.Uint64()%c.config.Epoch == 0 {
-		if _, err := c.doSomethingAtEpoch(chain, header, state); err != nil {
+		if _, err := c.syncWithSysContractAtEpoch(chain, header, state); err != nil {
 			panic(err)
 		}
 	}
@@ -817,22 +817,37 @@ func (c *Npos) tryPunishValidator(chain consensus.ChainHeaderReader, header *typ
 	return nil
 }
 
-func (c *Npos) doSomethingAtEpoch(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) ([]common.Address, error) {
-	newSortedValidators, err := c.getTopValidators(chain, header)
-	if err != nil {
+// syncWithSysContractAtEpoch: set current validators to system contract, decreaseMissedBlocksCounter, get and return next epoch validators
+func (c *Npos) syncWithSysContractAtEpoch(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) ([]common.Address, error) {
+	// NPoS use a look-back validators set for safety(when supporting fast-sync).
+	// the authorized validators come from the header.Extra at block currentNum - EPOCH.
+	checkpointHeader := chain.GetHeaderByNumber(header.Number.Uint64() - c.config.Epoch)
+	if checkpointHeader == nil {
+		return nil, consensus.ErrUnknownAncestor
+	}
+	// get validators from headers and use that for new validator set
+	validators := make([]common.Address, (len(checkpointHeader.Extra)-extraVanity-extraSeal)/common.AddressLength)
+	for i := 0; i < len(validators); i++ {
+		copy(validators[i][:], checkpointHeader.Extra[extraVanity+i*common.AddressLength:])
+	}
+	if len(validators) < 1 {
+		return []common.Address{}, errInvalidExtraValidators
+	}
+	if err := c.updateValidators(validators, chain, header, state); err != nil {
 		return []common.Address{}, err
 	}
 
-	// update contract new validators if new set exists
-	if err := c.updateValidators(newSortedValidators, chain, header, state); err != nil {
-		return []common.Address{}, err
-	}
 	//  decrease validator missed blocks counter at epoch
 	if err := c.decreaseMissedBlocksCounter(chain, header, state); err != nil {
 		return []common.Address{}, err
 	}
 
-	return newSortedValidators, nil
+	nextEpochValidators, err := c.getTopValidators(chain, header)
+	if err != nil {
+		return []common.Address{}, err
+	}
+
+	return nextEpochValidators, nil
 }
 
 // initializeSystemContracts initializes all genesis system contracts.
