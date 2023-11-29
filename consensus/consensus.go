@@ -147,9 +147,6 @@ type PoSA interface {
 	// IsSysTransaction checks whether a specific transaction is a system transaction.
 	IsSysTransaction(sender common.Address, tx *types.Transaction, header *types.Header) (bool, error)
 
-	// CanCreate determines where a given address can create a new contract.
-	CanCreate(state StateReader, addr common.Address, height *big.Int) bool
-
 	// ValidateTx do a consensus-related validation on the given transaction at the given header and state.
 	ValidateTx(sender common.Address, tx *types.Transaction, header *types.Header, parentState *state.StateDB) error
 

@@ -2,7 +2,6 @@ package npos
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -20,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -101,7 +99,7 @@ func (c *Npos) getPassedProposalByIndex(chain consensus.ChainHeaderReader, heade
 	return prop, nil
 }
 
-//finishProposalById
+// finishProposalById
 func (c *Npos) finishProposalById(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, id *big.Int) error {
 	method := "finishProposalById"
 	data, err := c.abi[systemcontract.SysGovContractName].Pack(method, id)
@@ -267,22 +265,6 @@ func (c *Npos) ApplySysTx(evm *vm.EVM, state *state.StateDB, txIndex int, sender
 		vmerr = errors.New("unsupported action")
 	}
 	return
-}
-
-// CanCreate determines where a given address can create a new contract.
-//
-// This will queries the system Developers contract, by DIRECTLY to get the target slot value of the contract,
-// it means that it's strongly relative to the layout of the Developers contract's state variables
-func (c *Npos) CanCreate(state consensus.StateReader, addr common.Address, height *big.Int) bool {
-	if c.config.EnableDevVerification {
-		if isDeveloperVerificationEnabled(state) {
-			slot := calcSlotOfDevMappingKey(addr)
-			valueHash := state.GetState(systemcontract.AddressListContractAddr, slot)
-			// none zero value means true
-			return valueHash.Big().Sign() > 0
-		}
-	}
-	return true
 }
 
 // ValidateTx do a consensus-related validation on the given transaction at the given header and state.
@@ -503,31 +485,6 @@ func (c *Npos) commonCallContract(header *types.Header, statedb *state.StateDB, 
 		return nil, errors.New("invalid result length")
 	}
 	return ret, nil
-}
-
-// Since the state variables are as follow:
-//    bool public initialized;
-//    bool public enabled;
-//    address public admin;
-//    address public pendingAdmin;
-//    mapping(address => bool) private devs;
-//
-// according to [Layout of State Variables in Storage](https://docs.soliditylang.org/en/v0.8.4/internals/layout_in_storage.html),
-// and after optimizer enabled, the `initialized`, `enabled` and `admin` will be packed, and stores at slot 0,
-// `pendingAdmin` stores at slot 1, and the position for `devs` is 2.
-func isDeveloperVerificationEnabled(state consensus.StateReader) bool {
-	compactValue := state.GetState(systemcontract.AddressListContractAddr, common.Hash{})
-	// Layout of slot 0:
-	// [0   -    9][10-29][  30   ][    31     ]
-	// [zero bytes][admin][enabled][initialized]
-	enabledByte := compactValue.Bytes()[common.HashLength-2]
-	return enabledByte == 0x01
-}
-
-func calcSlotOfDevMappingKey(addr common.Address) common.Hash {
-	p := make([]byte, common.HashLength)
-	binary.BigEndian.PutUint16(p[common.HashLength-2:], uint16(systemcontract.DevMappingPosition))
-	return crypto.Keccak256Hash(addr.Hash().Bytes(), p)
 }
 
 func lastBlacklistUpdatedNumber(state consensus.StateReader) uint64 {

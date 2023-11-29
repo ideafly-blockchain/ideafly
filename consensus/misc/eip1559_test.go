@@ -17,6 +17,7 @@
 package misc
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -128,5 +129,34 @@ func TestCalcBaseFee(t *testing.T) {
 		if have, want := CalcBaseFee(config(), parent), big.NewInt(test.expectedBaseFee); have.Cmp(want) != 0 {
 			t.Errorf("test %d: have %d  want %d, ", i, have, want)
 		}
+	}
+}
+
+func TestMinBaseFee(t *testing.T) {
+	parentBaseFee := big.NewInt(params.InitialBaseFee)
+	currentBaseFee := new(big.Int)
+	config := copyConfig(params.TestChainConfig)
+	head := &types.Header{
+		Number:   common.Big32,
+		GasLimit: 30000000,
+		GasUsed:  0,
+		BaseFee:  parentBaseFee,
+	}
+
+	i := 1
+	for parentBaseFee.Cmp(currentBaseFee) != 0 {
+		currentBaseFee = CalcBaseFee(config, head)
+		fmt.Printf("%3d\t%v\n", i, currentBaseFee)
+		parentBaseFee = head.BaseFee
+		head.BaseFee = currentBaseFee
+		i++
+	}
+	initBaseFee := big.NewInt(params.InitialBaseFee)
+	head.GasUsed = head.GasLimit
+	for currentBaseFee.Cmp(initBaseFee) < 0 {
+		currentBaseFee = CalcBaseFee(config, head)
+		fmt.Printf("%3d\t%v\n", i, currentBaseFee)
+		head.BaseFee = currentBaseFee
+		i++
 	}
 }

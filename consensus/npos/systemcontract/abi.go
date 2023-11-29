@@ -815,179 +815,498 @@ const SysGovInteractiveABI = `
 
 const AddrListInteractiveABI = `
 [
-	{
-	  "inputs": [],
-	  "name": "blackLastUpdatedNumber",
-	  "outputs": [
-		{
-		  "internalType": "uint256",
-		  "name": "",
-		  "type": "uint256"
-		}
-	  ],
-	  "stateMutability": "view",
-	  "type": "function"
-	},
-	{
-	  "inputs": [],
-	  "name": "devVerifyEnabled",
-	  "outputs": [
-		{
-		  "internalType": "bool",
-		  "name": "",
-		  "type": "bool"
-		}
-	  ],
-	  "stateMutability": "view",
-	  "type": "function"
-	},
-	{
-	  "inputs": [],
-	  "name": "getBlacksFrom",
-	  "outputs": [
-		{
-		  "internalType": "address[]",
-		  "name": "",
-		  "type": "address[]"
-		}
-	  ],
-	  "stateMutability": "view",
-	  "type": "function"
-	},
-	{
-	  "inputs": [],
-	  "name": "getBlacksTo",
-	  "outputs": [
-		{
-		  "internalType": "address[]",
-		  "name": "",
-		  "type": "address[]"
-		}
-	  ],
-	  "stateMutability": "view",
-	  "type": "function"
-	},
-	{
-	  "inputs": [
-		{
-		  "internalType": "uint32",
-		  "name": "i",
-		  "type": "uint32"
-		}
-	  ],
-	  "name": "getRuleByIndex",
-	  "outputs": [
-		{
-		  "internalType": "bytes32",
-		  "name": "",
-		  "type": "bytes32"
-		},
-		{
-		  "internalType": "uint128",
-		  "name": "",
-		  "type": "uint128"
-		},
-		{
-		  "internalType": "enum AddressList.CheckType",
-		  "name": "",
-		  "type": "uint8"
-		}
-	  ],
-	  "stateMutability": "view",
-	  "type": "function"
-	},
-	{
-	  "inputs": [],
-	  "name": "initializeV2",
-	  "outputs": [],
-	  "stateMutability": "nonpayable",
-	  "type": "function"
-	},
-	{
-	  "inputs": [
-		{
-		  "internalType": "address",
-		  "name": "_admin",
-		  "type": "address"
-		}
-	  ],
-	  "name": "initialize",
-	  "outputs": [],
-	  "stateMutability": "nonpayable",
-	  "type": "function"
-	},
-	{
-	  "inputs": [
-		{
-		  "internalType": "address",
-		  "name": "addr",
-		  "type": "address"
-		}
-	  ],
-	  "name": "isDeveloper",
-	  "outputs": [
-		{
-		  "internalType": "bool",
-		  "name": "",
-		  "type": "bool"
-		}
-	  ],
-	  "stateMutability": "view",
-	  "type": "function"
-	},
-	{
-	  "inputs": [],
-	  "name": "rulesLastUpdatedNumber",
-	  "outputs": [
-		{
-		  "internalType": "uint256",
-		  "name": "",
-		  "type": "uint256"
-		}
-	  ],
-	  "stateMutability": "view",
-	  "type": "function"
-	},
-	{
-	  "inputs": [],
-	  "name": "rulesLen",
-	  "outputs": [
-		{
-		  "internalType": "uint32",
-		  "name": "",
-		  "type": "uint32"
-		}
-	  ],
-	  "stateMutability": "view",
-	  "type": "function"
-	}
-]`
-
-// DevMappingPosition is the position of the state variable `devs`.
-// Since the state variables are as follow:
-//    bool public initialized;
-//    bool public devVerifyEnabled;
-//    address public admin;
-//    address public pendingAdmin;
-//
-//    mapping(address => bool) private devs;
-//
-//    //NOTE: make sure this list is not too large!
-//    address[] blacksFrom;
-//    address[] blacksTo;
-//    mapping(address => uint256) blacksFromMap;      // address => index+1
-//    mapping(address => uint256) blacksToMap;        // address => index+1
-//
-//    uint256 public blackLastUpdatedNumber; // last block number when the black list is updated
-//    uint256 public rulesLastUpdatedNumber;  // last block number when the rules are updated
-//    // event check rules
-//    EventCheckRule[] rules;
-//    mapping(bytes32 => mapping(uint128 => uint256)) rulesMap;   // eventSig => checkIdx => indexInArray+1
-//
-// according to [Layout of State Variables in Storage](https://docs.soliditylang.org/en/v0.8.4/internals/layout_in_storage.html),
-// and after optimizer enabled, the `initialized`, `enabled` and `admin` will be packed, and stores at slot 0,
-// `pendingAdmin` stores at slot 1, so the position for `devs` is 2.
-const DevMappingPosition = 2
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newAdmin",
+          "type": "address"
+        }
+      ],
+      "name": "AdminChanged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newAdmin",
+          "type": "address"
+        }
+      ],
+      "name": "AdminChanging",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "addr",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum AddressList.Direction",
+          "name": "d",
+          "type": "uint8"
+        }
+      ],
+      "name": "BlackAddrAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "addr",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum AddressList.Direction",
+          "name": "d",
+          "type": "uint8"
+        }
+      ],
+      "name": "BlackAddrRemoved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "addr",
+          "type": "address"
+        }
+      ],
+      "name": "DeveloperAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "addr",
+          "type": "address"
+        }
+      ],
+      "name": "DeveloperRemoved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bool",
+          "name": "newState",
+          "type": "bool"
+        }
+      ],
+      "name": "EnableStateChanged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "eventSig",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint128",
+          "name": "checkIdx",
+          "type": "uint128"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum AddressList.CheckType",
+          "name": "t",
+          "type": "uint8"
+        }
+      ],
+      "name": "RuleAdded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "eventSig",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint128",
+          "name": "checkIdx",
+          "type": "uint128"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum AddressList.CheckType",
+          "name": "t",
+          "type": "uint8"
+        }
+      ],
+      "name": "RuleRemoved",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "eventSig",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint128",
+          "name": "checkIdx",
+          "type": "uint128"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum AddressList.CheckType",
+          "name": "t",
+          "type": "uint8"
+        }
+      ],
+      "name": "RuleUpdated",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "a",
+          "type": "address"
+        },
+        {
+          "internalType": "enum AddressList.Direction",
+          "name": "d",
+          "type": "uint8"
+        }
+      ],
+      "name": "addBlacklist",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "sig",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint128",
+          "name": "checkIdx",
+          "type": "uint128"
+        },
+        {
+          "internalType": "enum AddressList.CheckType",
+          "name": "tp",
+          "type": "uint8"
+        }
+      ],
+      "name": "addOrUpdateRule",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "admin",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "blackLastUpdatedNumber",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newAdmin",
+          "type": "address"
+        }
+      ],
+      "name": "commitChangeAdmin",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "confirmChangeAdmin",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getBlacksFrom",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "",
+          "type": "address[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getBlacksTo",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "",
+          "type": "address[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint32",
+          "name": "i",
+          "type": "uint32"
+        }
+      ],
+      "name": "getRuleByIndex",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint128",
+          "name": "",
+          "type": "uint128"
+        },
+        {
+          "internalType": "enum AddressList.CheckType",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "sig",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint128",
+          "name": "checkIdx",
+          "type": "uint128"
+        }
+      ],
+      "name": "getRuleByKey",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint128",
+          "name": "",
+          "type": "uint128"
+        },
+        {
+          "internalType": "enum AddressList.CheckType",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_admin",
+          "type": "address"
+        }
+      ],
+      "name": "initialize",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "initialized",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "a",
+          "type": "address"
+        }
+      ],
+      "name": "isBlackAddress",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        },
+        {
+          "internalType": "enum AddressList.Direction",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pendingAdmin",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "a",
+          "type": "address"
+        },
+        {
+          "internalType": "enum AddressList.Direction",
+          "name": "d",
+          "type": "uint8"
+        }
+      ],
+      "name": "removeBlacklist",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "sig",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint128",
+          "name": "checkIdx",
+          "type": "uint128"
+        }
+      ],
+      "name": "removeRule",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "rulesLastUpdatedNumber",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "rulesLen",
+      "outputs": [
+        {
+          "internalType": "uint32",
+          "name": "",
+          "type": "uint32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ]`
 
 var (
 	BlackLastUpdatedNumberPosition = common.BytesToHash([]byte{0x07})
