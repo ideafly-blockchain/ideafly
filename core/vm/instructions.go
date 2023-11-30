@@ -241,7 +241,7 @@ func opKeccak256(pc *uint64, interpreter *EVMInterpreter, scope *ScopeContext) (
 	if interpreter.hasher == nil {
 		interpreter.hasher = sha3.NewLegacyKeccak256().(keccakState)
 	}
-	interpreter.hasherBuf = crypto.HashDataWithCache(interpreter.hasher, data)
+	interpreter.hasherBuf = crypto.CachedHashData(interpreter.hasher, data)
 
 	evm := interpreter.evm
 	if evm.Config.EnablePreimageRecording {

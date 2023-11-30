@@ -122,7 +122,7 @@ func newObject(db *StateDB, address common.Address, data types.StateAccount) *st
 	return &stateObject{
 		db:             db,
 		address:        address,
-		addrHash:       crypto.HashDataWithCache(nil, address[:]),
+		addrHash:       crypto.CachedHashData(nil, address[:]),
 		data:           data,
 		originStorage:  make(Storage),
 		pendingStorage: make(Storage),
@@ -222,7 +222,7 @@ func (s *stateObject) GetCommittedState(db Database, key common.Hash) common.Has
 			return common.Hash{}
 		}
 		start := time.Now()
-		enc, err = s.db.snap.Storage(s.addrHash, crypto.HashDataWithCache(nil, key[:]))
+		enc, err = s.db.snap.Storage(s.addrHash, crypto.CachedHashData(nil, key[:]))
 		if metrics.EnabledExpensive {
 			s.db.SnapshotStorageReads += time.Since(start)
 		}
@@ -312,7 +312,7 @@ func (s *stateObject) finalise(prefetch bool) {
 	}
 }
 
-func (s *stateObject) updateTrieConcurrencySafe(db Database) Trie {
+func (s *stateObject) updateTrieThreadSafe(db Database) Trie {
 	if len(s.pendingStorage) == 0 {
 		return s.trie
 	}
@@ -349,7 +349,7 @@ func (s *stateObject) updateTrieConcurrencySafe(db Database) Trie {
 					storage = make(map[common.Hash][]byte)
 				}
 			}
-			storage[crypto.HashDataWithCache(hasher, key[:])] = v // v will be nil if value is 0x00
+			storage[crypto.CachedHashData(hasher, key[:])] = v // v will be nil if value is 0x00
 		}
 		usedStorage = append(usedStorage, common.CopyBytes(key[:])) // Copy needed for closure
 	}
@@ -362,18 +362,6 @@ func (s *stateObject) updateTrieConcurrencySafe(db Database) Trie {
 	return tr
 }
 
-// update s.db.snapStorage and s.db.prefetcher.used
-func (s *stateObject) updateSnapshot() {
-	if s.snapStorage != nil {
-		s.db.snapStorage[s.addrHash] = s.snapStorage
-		s.snapStorage = nil
-	}
-	if s.db.prefetcher != nil && s.usedStorage != nil {
-		s.db.prefetcher.used(s.addrHash, s.data.Root, s.usedStorage)
-		s.usedStorage = nil
-	}
-}
-
 // updateTrie writes cached storage modifications into the object's storage trie.
 func (s *stateObject) updateTrie(db Database) Trie {
 	// Make sure all dirty slots are finalized into the pending storage area
@@ -382,9 +370,17 @@ func (s *stateObject) updateTrie(db Database) Trie {
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.db.StorageUpdates += time.Since(start) }(time.Now())
 	}
-	tr := s.updateTrieConcurrencySafe(db)
-	s.updateSnapshot()
-
+	tr := s.updateTrieThreadSafe(db)
+	// update snapshot
+	if s.snapStorage != nil {
+		s.db.snapStorage[s.addrHash] = s.snapStorage
+		s.snapStorage = nil
+	}
+	// update prefetcher
+	if s.db.prefetcher != nil && s.usedStorage != nil {
+		s.db.prefetcher.used(s.addrHash, s.data.Root, s.usedStorage)
+		s.usedStorage = nil
+	}
 	return tr
 }
 

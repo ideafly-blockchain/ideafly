@@ -471,26 +471,18 @@ func (s *StateDB) Erase(addr common.Address) bool {
 // Setting, updating & deleting state object methods.
 //
 
-// concurrency safe
-func (s *StateDB) preUpdateStateObject(obj *stateObject) {
-	obj.updateTrieConcurrencySafe(s.db)
-
-	// If nothing changed, don't bother with hashing anything
-	if obj.trie != nil {
-		obj.data.Root = obj.trie.Hash()
-	}
-
-	// Encode the account and update the account trie
-	obj.accountRLP, obj.rlpErr = rlp.EncodeToBytes(&obj.data)
-	if s.snap != nil {
-		obj.slimAccountRLP = snapshot.SlimAccountRLP(obj.data.Nonce, obj.data.Balance, obj.data.Root, obj.data.CodeHash)
-	}
-}
-
 // updateStateObject writes the given object to the trie.
 func (s *StateDB) updateStateObject(obj *stateObject) {
-	obj.updateSnapshot()
-
+	// update snapshot
+	if obj.snapStorage != nil {
+		obj.db.snapStorage[obj.addrHash] = obj.snapStorage
+		obj.snapStorage = nil
+	}
+	// update prefetcher
+	if obj.db.prefetcher != nil && obj.usedStorage != nil {
+		obj.db.prefetcher.used(obj.addrHash, obj.data.Root, obj.usedStorage)
+		obj.usedStorage = nil
+	}
 	// Track the amount of time wasted on updating the account from the trie
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.AccountUpdates += time.Since(start) }(time.Now())
@@ -539,8 +531,8 @@ func (s *StateDB) getStateObject(addr common.Address) *stateObject {
 	return nil
 }
 
-// preload accounts from Transactions
-func (s *StateDB) PreloadAccounts(block *types.Block, signer types.Signer) {
+// PrefetchStateObjects preload accounts from Transactions
+func (s *StateDB) PrefetchStateObjects(block *types.Block, signer types.Signer) {
 	if s.snap == nil {
 		return
 	}
@@ -551,59 +543,49 @@ func (s *StateDB) PreloadAccounts(block *types.Block, signer types.Signer) {
 		}(time.Now())
 	}
 
-	objsForPreload := make(map[common.Address]*stateObject, 2*len(block.Transactions()))
+	preloads := make(map[common.Address]*stateObject, 2*len(block.Transactions()))
 	for _, tx := range block.Transactions() {
 		from, err := types.Sender(signer, tx) // from have been cached
 		if err != nil {
 			break
 		}
-		objsForPreload[from] = nil
+		preloads[from] = nil
 		if tx.To() != nil {
-			objsForPreload[*tx.To()] = nil
+			preloads[*tx.To()] = nil
 		}
 	}
 
-	objsChan := make(chan *stateObject, len(objsForPreload))
-	for addr := range objsForPreload {
+	objsChan := make(chan *stateObject, len(preloads))
+	for addr := range preloads {
 		addr := addr
 		gopool.Submit(func() {
-			objsChan <- s.preloadAccountFromSnap(addr)
+			if account, err := s.snap.Account(crypto.CachedHashData(nil, addr.Bytes())); account != nil && err == nil {
+				data := &types.StateAccount{
+					Nonce:    account.Nonce,
+					Balance:  account.Balance,
+					CodeHash: account.CodeHash,
+					Root:     common.BytesToHash(account.Root),
+				}
+				if len(data.CodeHash) == 0 {
+					data.CodeHash = emptyCodeHash
+				}
+				if data.Root == (common.Hash{}) {
+					data.Root = emptyRoot
+				}
+				objsChan <- newObject(s, addr, *data)
+			} else {
+				objsChan <- nil
+			}
 		})
 	}
 
-	for i := 0; i < len(objsForPreload); i++ {
+	for i := 0; i < len(preloads); i++ {
 		if obj := <-objsChan; obj != nil {
 			if _, ok := s.stateObjects[obj.Address()]; !ok {
 				s.setStateObject(obj)
 			}
 		}
 	}
-}
-
-func (s *StateDB) preloadAccountFromSnap(addr common.Address) *stateObject {
-	if s.snap == nil {
-		return nil
-	}
-
-	if acc, err := s.snap.Account(crypto.HashDataWithCache(nil, addr.Bytes())); err == nil {
-		if acc == nil {
-			return nil
-		}
-		data := &types.StateAccount{
-			Nonce:    acc.Nonce,
-			Balance:  acc.Balance,
-			CodeHash: acc.CodeHash,
-			Root:     common.BytesToHash(acc.Root),
-		}
-		if len(data.CodeHash) == 0 {
-			data.CodeHash = emptyCodeHash
-		}
-		if data.Root == (common.Hash{}) {
-			data.Root = emptyRoot
-		}
-		return newObject(s, addr, *data)
-	}
-	return nil
 }
 
 // getDeletedStateObject is similar to getStateObject, but instead of returning
@@ -619,7 +601,7 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 	var data *types.StateAccount
 	if s.snap != nil {
 		start := time.Now()
-		acc, err := s.snap.Account(crypto.HashDataWithCache(s.hasher, addr.Bytes()))
+		acc, err := s.snap.Account(crypto.CachedHashData(s.hasher, addr.Bytes()))
 		if metrics.EnabledExpensive {
 			s.SnapshotAccountReads += time.Since(start)
 		}
@@ -955,7 +937,16 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 			obj.finalise(false)
 			wg.Add(1)
 			gopool.Submit(func() {
-				s.preUpdateStateObject(obj)
+				obj.updateTrieThreadSafe(s.db)
+				// If nothing changed, don't bother with hashing anything
+				if obj.trie != nil {
+					obj.data.Root = obj.trie.Hash()
+				}
+				// Encode the account and update the account trie
+				obj.accountRLP, obj.rlpErr = rlp.EncodeToBytes(&obj.data)
+				if s.snap != nil {
+					obj.slimAccountRLP = snapshot.SlimAccountRLP(obj.data.Nonce, obj.data.Balance, obj.data.Root, obj.data.CodeHash)
+				}
 				wg.Done()
 			})
 		}

@@ -106,7 +106,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 
 	// preload from and to of txs
 	signer := types.MakeSigner(p.config, header.Number)
-	statedb.PreloadAccounts(block, signer)
+	statedb.PrefetchStateObjects(block, signer)
 
 	var bloomWg sync.WaitGroup
 	returnErrBeforeWaitGroup := true

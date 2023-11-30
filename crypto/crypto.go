@@ -36,7 +36,7 @@ import (
 	"golang.org/x/crypto/sha3"
 )
 
-//SignatureLength indicates the byte length required to carry a signature with recovery id.
+// SignatureLength indicates the byte length required to carry a signature with recovery id.
 const SignatureLength = 64 + 1 // 64 bytes ECDSA signature + 1 byte recovery id
 
 // RecoveryIDOffset points to the byte offset within the signature that contains the recovery id.
@@ -50,7 +50,7 @@ const hashCacheSize = 256 * 1024 * 1024
 var (
 	secp256k1N, _  = new(big.Int).SetString("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141", 16)
 	secp256k1halfN = new(big.Int).Div(secp256k1N, big.NewInt(2))
-	hashCache      = fastcache.New(hashCacheSize)
+	cachedHash     = fastcache.New(hashCacheSize)
 )
 
 var errInvalidPubkey = errors.New("invalid secp256k1 public key")
@@ -76,14 +76,14 @@ func HashData(kh KeccakState, data []byte) (h common.Hash) {
 	return h
 }
 
-// HashDataWithCache hashes the provided data using the KeccakState and returns a 32 byte hash;
+// CachedHashData hashes the provided data using the KeccakState and returns a 32 byte hash;
 // when len(data) is belong to (0,96], cache will be used;
 // design for hashing common.Address, common.Hash and opSha3
-func HashDataWithCache(kh KeccakState, data []byte) (h common.Hash) {
+func CachedHashData(kh KeccakState, data []byte) (h common.Hash) {
 	l := len(data)
-	// 96 is set according to txs on heco mainnet
+	// 96 is set according to txs on mainnet
 	if l > 0 && l <= 96 {
-		if hash := hashCache.Get(nil, data); len(hash) == 32 {
+		if hash := cachedHash.Get(nil, data); len(hash) == 32 {
 			return common.BytesToHash(hash)
 		}
 	}
@@ -98,7 +98,7 @@ func HashDataWithCache(kh KeccakState, data []byte) (h common.Hash) {
 	d.Read(h[:])
 
 	if l > 0 && l <= 96 {
-		hashCache.Set(data, h[:])
+		cachedHash.Set(data, h[:])
 	}
 
 	return h
