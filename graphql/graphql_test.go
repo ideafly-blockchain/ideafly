@@ -139,9 +139,13 @@ func TestGraphQLBlockSerialization(t *testing.T) {
 			code: 400,
 		},
 		// should return `estimateGas` as decimal
+		// Note: NDDN use an approximately estimate gas strategy rather then a precise estimate strategy
+		// an contract creation without data cost 53000 gas, for an binary estimate between [20999,11500000] (11500000 is the block gas limit on this test suite),
+		// the NDDN approximately estimate logic will return at gas 54628,
+		// since at this time, hi = 54628, lo =51825 , hi - lo < 4000
 		{
 			body: `{"query": "{block{ estimateGas(data:{}) }}"}`,
-			want: `{"data":{"block":{"estimateGas":53000}}}`,
+			want: `{"data":{"block":{"estimateGas":54628}}}`,
 			code: 200,
 		},
 		// should return `status` as decimal
