@@ -829,8 +829,8 @@ web3._extend({
 			params: 1,
 		}),
 		new web3._extend.Property({
-			name: 'jamIndex',
-			getter: 'txpool_jamIndex'
+			name: 'congestionRecord',
+			getter: 'txpool_congestionRecord'
 		}),
 	]
 });

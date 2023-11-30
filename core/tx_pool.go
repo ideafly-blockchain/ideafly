@@ -170,7 +170,7 @@ type TxPoolConfig struct {
 
 	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued
 
-	JamConfig TxJamConfig
+	CongestionConfig TxCongestionConfig
 }
 
 // DefaultTxPoolConfig contains the default configurations for the transaction
@@ -189,7 +189,7 @@ var DefaultTxPoolConfig = TxPoolConfig{
 
 	Lifetime: 3 * time.Hour,
 
-	JamConfig: DefaultJamConfig,
+	CongestionConfig: DefaultCongestionConfig,
 }
 
 // sanitize checks the provided user configurations and changes anything that's
@@ -271,8 +271,8 @@ type TxPool struct {
 	// there's a special case we need this:
 	// during a large chain insertion, the ChainHeadEvent will not be fired in time, then some old trie-nodes
 	// will be discarded due to GC, and it will cause failure to get blacklist.
-	disableExValidate bool
-	jamIndexer        *txJamIndexer // tx jam indexer
+	disableExValidate  bool
+	congestionRecorder *txCongestionRecorder // tx congestion indexer
 
 	chainHeadCh     chan ChainHeadEvent
 	chainHeadSub    event.Subscription
@@ -316,22 +316,27 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 		initDoneCh:      make(chan struct{}),
 		gasPrice:        new(big.Int).SetUint64(config.PriceLimit),
 	}
-	pool.jamIndexer = newTxJamIndexer(config.JamConfig, pool)
+	pool.Init()
+	return pool
+}
+
+func (pool *TxPool) Init() {
+	pool.congestionRecorder = newTxCongestionRecorder(pool.config.CongestionConfig, pool)
 	pool.locals = newAccountSet(pool.signer)
-	for _, addr := range config.Locals {
+	for _, addr := range pool.config.Locals {
 		log.Info("Setting new local account", "address", addr)
 		pool.locals.add(addr)
 	}
 	pool.priced = newTxPricedList(pool.all)
-	pool.reset(nil, chain.CurrentBlock().Header())
+	pool.reset(nil, pool.chain.CurrentBlock().Header())
 
 	// Start the reorg loop early so it can handle requests generated during journal loading.
 	pool.wg.Add(1)
 	go pool.scheduleReorgLoop()
 
 	// If local transactions and journaling is enabled, load from disk
-	if !config.NoLocals && config.Journal != "" {
-		pool.journal = newTxJournal(config.Journal)
+	if !pool.config.NoLocals && pool.config.Journal != "" {
+		pool.journal = newTxJournal(pool.config.Journal)
 
 		if err := pool.journal.load(pool.AddLocals); err != nil {
 			log.Warn("Failed to load transaction journal", "err", err)
@@ -345,8 +350,6 @@ func NewTxPool(config TxPoolConfig, chainconfig *params.ChainConfig, chain block
 	pool.chainHeadSub = pool.chain.SubscribeChainHeadEvent(pool.chainHeadCh)
 	pool.wg.Add(1)
 	go pool.loop()
-
-	return pool
 }
 
 // InitExTxValidator sets the extra validator
@@ -383,7 +386,7 @@ func (pool *TxPool) loop() {
 			if ev.Block != nil {
 				pool.requestReset(head.Header(), ev.Block.Header())
 				head = ev.Block
-				pool.jamIndexer.UpdateHeader(head.Header())
+				pool.congestionRecorder.UpdateHeader(head.Header())
 			}
 
 		// System shutdown.
@@ -444,7 +447,7 @@ func (pool *TxPool) Stop() {
 	pool.chainHeadSub.Unsubscribe()
 	pool.wg.Wait()
 
-	pool.jamIndexer.Stop()
+	pool.congestionRecorder.Stop()
 
 	if pool.journal != nil {
 		pool.journal.close()
@@ -592,9 +595,9 @@ func (pool *TxPool) Locals() []common.Address {
 	return pool.locals.flatten()
 }
 
-// JamIndex returns the jam index which is evaluated by current pending transactions.
-func (pool *TxPool) JamIndex() int {
-	return pool.jamIndexer.JamIndex()
+// CongestionRecord returns the congestion index which is evaluated by current pending transactions.
+func (pool *TxPool) CongestionRecord() int {
+	return pool.congestionRecorder.CongestionRecord()
 }
 
 // local retrieves all currently known local transactions, grouped by origin
@@ -715,67 +718,14 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 	}
 	// If the transaction pool is full, discard underpriced transactions
 	if uint64(pool.all.Slots()+numSlots(tx)) > pool.config.GlobalSlots+pool.config.GlobalQueue {
-		// If the new transaction is underpriced, don't accept it
-		if !isLocal && pool.priced.Underpriced(tx) {
-			log.Trace("Discarding underpriced transaction", "hash", hash, "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
-			underpricedTxMeter.Mark(1)
-			pool.jamIndexer.UnderPricedInc()
-			return false, ErrUnderpriced
-		}
-		// We're about to replace a transaction. The reorg does a more thorough
-		// analysis of what to remove and how, but it runs async. We don't want to
-		// do too many replacements between reorg-runs, so we cap the number of
-		// replacements to 25% of the slots
-		if pool.changesSinceReorg > int(pool.config.GlobalSlots/4) {
-			throttleTxMeter.Mark(1)
-			return false, ErrTxPoolOverflow
-		}
-
-		// New transaction is better than our worse ones, make room for it.
-		// If it's a local transaction, forcibly discard all available transactions.
-		// Otherwise if we can't make enough room for new one, abort the operation.
-		drop, success := pool.priced.Discard(pool.all.Slots()-int(pool.config.GlobalSlots+pool.config.GlobalQueue)+numSlots(tx), isLocal)
-
-		// Special case, we still can't make the room for the new remote one.
-		if !isLocal && !success {
-			log.Trace("Discarding overflown transaction", "hash", hash)
-			overflowedTxMeter.Mark(1)
-			return false, ErrTxPoolOverflow
-		}
-		// Bump the counter of rejections-since-reorg
-		pool.changesSinceReorg += len(drop)
-		// Kick out the underpriced remote transactions.
-		for _, tx := range drop {
-			log.Trace("Discarding freshly underpriced transaction", "hash", tx.Hash(), "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
-			underpricedTxMeter.Mark(1)
-			pool.jamIndexer.UnderPricedInc()
-			pool.removeTx(tx.Hash(), false)
+		if replaced, err := pool.handleUnderpriced(tx, isLocal); err != nil {
+			return replaced, err
 		}
 	}
 	// Try to replace an existing transaction in the pending pool
 	from, _ := types.Sender(pool.signer, tx) // already validated
 	if list := pool.pending[from]; list != nil && list.Overlaps(tx) {
-		// Nonce already pending, check if required price bump is met
-		inserted, old := list.Add(tx, pool.config.PriceBump)
-		if !inserted {
-			pendingDiscardMeter.Mark(1)
-			return false, ErrReplaceUnderpriced
-		}
-		// New transaction is better, replace old one
-		if old != nil {
-			pool.all.Remove(old.Hash())
-			pool.priced.Removed(1)
-			pendingReplaceMeter.Mark(1)
-		}
-		pool.all.Add(tx, isLocal)
-		pool.priced.Put(tx, isLocal)
-		pool.journalTx(from, tx)
-		pool.queueTxEvent(tx)
-		log.Trace("Pooled new executable transaction", "hash", hash, "from", from, "to", tx.To())
-
-		// Successful promotion, bump the heartbeat
-		pool.beats[from] = time.Now()
-		return old != nil, nil
+		return pool.replacePending(list, from, tx, isLocal)
 	}
 	// New transaction isn't replacing a pending one, push into queue
 	replaced, err = pool.enqueueTx(hash, tx, isLocal, true)
@@ -795,6 +745,70 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 
 	log.Trace("Pooled new future transaction", "hash", hash, "from", from, "to", tx.To())
 	return replaced, nil
+}
+
+func (pool *TxPool) handleUnderpriced(tx *types.Transaction, isLocal bool) (replaced bool, err error) {
+	// If the new transaction is underpriced, don't accept it
+	if !isLocal && pool.priced.Underpriced(tx) {
+		log.Trace("Discarding underpriced transaction", "hash", tx.Hash(), "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
+		underpricedTxMeter.Mark(1)
+		pool.congestionRecorder.UnderPricedInc()
+		return false, ErrUnderpriced
+	}
+	// We're about to replace a transaction. The reorg does a more thorough
+	// analysis of what to remove and how, but it runs async. We don't want to
+	// do too many replacements between reorg-runs, so we cap the number of
+	// replacements to 25% of the slots
+	if pool.changesSinceReorg > int(pool.config.GlobalSlots/4) {
+		throttleTxMeter.Mark(1)
+		return false, ErrTxPoolOverflow
+	}
+
+	// New transaction is better than our worse ones, make room for it.
+	// If it's a local transaction, forcibly discard all available transactions.
+	// Otherwise if we can't make enough room for new one, abort the operation.
+	drop, success := pool.priced.Discard(pool.all.Slots()-int(pool.config.GlobalSlots+pool.config.GlobalQueue)+numSlots(tx), isLocal)
+
+	// Special case, we still can't make the room for the new remote one.
+	if !isLocal && !success {
+		log.Trace("Discarding overflown transaction", "hash", tx.Hash())
+		overflowedTxMeter.Mark(1)
+		return false, ErrTxPoolOverflow
+	}
+	// Bump the counter of rejections-since-reorg
+	pool.changesSinceReorg += len(drop)
+	// Kick out the underpriced remote transactions.
+	for _, tx := range drop {
+		log.Trace("Discarding freshly underpriced transaction", "hash", tx.Hash(), "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
+		underpricedTxMeter.Mark(1)
+		pool.congestionRecorder.UnderPricedInc()
+		pool.removeTx(tx.Hash(), false)
+	}
+	return false, nil
+}
+
+func (pool *TxPool) replacePending(list *txList, from common.Address, tx *types.Transaction, isLocal bool) (replaced bool, err error) {
+	// Nonce already pending, check if required price bump is met
+	inserted, old := list.Add(tx, pool.config.PriceBump)
+	if !inserted {
+		pendingDiscardMeter.Mark(1)
+		return false, ErrReplaceUnderpriced
+	}
+	// New transaction is better, replace old one
+	if old != nil {
+		pool.all.Remove(old.Hash())
+		pool.priced.Removed(1)
+		pendingReplaceMeter.Mark(1)
+	}
+	pool.all.Add(tx, isLocal)
+	pool.priced.Put(tx, isLocal)
+	pool.journalTx(from, tx)
+	pool.queueTxEvent(tx)
+	log.Trace("Pooled new executable transaction", "hash", tx.Hash(), "from", from, "to", tx.To())
+
+	// Successful promotion, bump the heartbeat
+	pool.beats[from] = time.Now()
+	return old != nil, nil
 }
 
 // enqueueTx inserts a new transaction into the non-executable transaction queue.

@@ -296,8 +296,8 @@ func (b *EthAPIBackend) TxPoolContentFrom(addr common.Address) (types.Transactio
 	return b.eth.TxPool().ContentFrom(addr)
 }
 
-func (b *EthAPIBackend) JamIndex() int {
-	return b.eth.TxPool().JamIndex()
+func (b *EthAPIBackend) CongestionRecord() int {
+	return b.eth.TxPool().CongestionRecord()
 }
 
 func (b *EthAPIBackend) TxPool() *core.TxPool {

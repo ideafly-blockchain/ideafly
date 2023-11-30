@@ -341,4 +341,4 @@ func (b *backendMock) SubscribeRemovedLogsEvent(ch chan<- core.RemovedLogsEvent)
 
 func (b *backendMock) Engine() consensus.Engine { return nil }
 
-func (b *backendMock) JamIndex() int { return 0 }
+func (b *backendMock) CongestionRecord() int { return 0 }

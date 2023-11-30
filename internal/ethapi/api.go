@@ -293,8 +293,8 @@ func (s *TxPoolAPI) Inspect2() map[string][]string {
 	return content
 }
 
-func (s *TxPoolAPI) JamIndex() int {
-	return s.b.JamIndex()
+func (s *TxPoolAPI) CongestionRecord() int {
+	return s.b.CongestionRecord()
 }
 
 // EthereumAccountAPI provides an API to access accounts managed by this node.

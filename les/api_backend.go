@@ -233,7 +233,7 @@ func (b *LesApiBackend) TxPoolContentFrom(addr common.Address) (types.Transactio
 	return b.eth.txPool.ContentFrom(addr)
 }
 
-func (b *LesApiBackend) JamIndex() int {
+func (b *LesApiBackend) CongestionRecord() int {
 	return 0 // not implement
 }
 
