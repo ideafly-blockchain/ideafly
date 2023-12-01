@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 	"runtime/debug"
 	"time"
@@ -15,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/npos/systemcontract"
-	"github.com/ethereum/go-ethereum/consensus/npos/vmcaller"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -39,7 +37,7 @@ type Proposal struct {
 	Data   []byte
 }
 
-func (c *Npos) getPassedProposalCount(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) (uint32, error) {
+func (c *Npos) getPassedProposalCount(ctx *systemcontract.CallContext) (uint32, error) {
 
 	method := "getPassedProposalCount"
 	data, err := c.abi[systemcontract.SysGovContractName].Pack(method)
@@ -48,14 +46,10 @@ func (c *Npos) getPassedProposalCount(chain consensus.ChainHeaderReader, header 
 		return 0, err
 	}
 
-	msg := vmcaller.NewLegacyMessage(header.Coinbase, &systemcontract.SysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
-
-	// use parent
-	result, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
+	result, err := systemcontract.VmCall(ctx, systemcontract.SysGovContractAddr, data)
 	if err != nil {
 		return 0, err
 	}
-
 	// unpack data
 	ret, err := c.abi[systemcontract.SysGovContractName].Unpack(method, result)
 	if err != nil {
@@ -72,7 +66,7 @@ func (c *Npos) getPassedProposalCount(chain consensus.ChainHeaderReader, header 
 	return count, nil
 }
 
-func (c *Npos) getPassedProposalByIndex(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, idx uint32) (*Proposal, error) {
+func (c *Npos) getPassedProposalByIndex(ctx *systemcontract.CallContext, idx uint32) (*Proposal, error) {
 
 	method := "getPassedProposalByIndex"
 	data, err := c.abi[systemcontract.SysGovContractName].Pack(method, idx)
@@ -81,14 +75,10 @@ func (c *Npos) getPassedProposalByIndex(chain consensus.ChainHeaderReader, heade
 		return nil, err
 	}
 
-	msg := vmcaller.NewLegacyMessage(header.Coinbase, &systemcontract.SysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
-
-	// use parent
-	result, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
+	result, err := systemcontract.VmCall(ctx, systemcontract.SysGovContractAddr, data)
 	if err != nil {
 		return nil, err
 	}
-
 	// unpack data
 	prop := &Proposal{}
 	err = c.abi[systemcontract.SysGovContractName].UnpackIntoInterface(prop, method, result)
@@ -100,7 +90,7 @@ func (c *Npos) getPassedProposalByIndex(chain consensus.ChainHeaderReader, heade
 }
 
 // finishProposalById
-func (c *Npos) finishProposalById(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, id *big.Int) error {
+func (c *Npos) finishProposalById(ctx *systemcontract.CallContext, id *big.Int) error {
 	method := "finishProposalById"
 	data, err := c.abi[systemcontract.SysGovContractName].Pack(method, id)
 	if err != nil {
@@ -108,11 +98,7 @@ func (c *Npos) finishProposalById(chain consensus.ChainHeaderReader, header *typ
 		return err
 	}
 
-	msg := vmcaller.NewLegacyMessage(header.Coinbase, &systemcontract.SysGovContractAddr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
-
-	// execute message without a transaction
-	state.Prepare(common.Hash{}, 0)
-	_, err = vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
+	_, err = systemcontract.VmCall(ctx, systemcontract.SysGovContractAddr, data)
 	if err != nil {
 		return err
 	}
@@ -120,7 +106,7 @@ func (c *Npos) finishProposalById(chain consensus.ChainHeaderReader, header *typ
 	return nil
 }
 
-func (c *Npos) executeProposal(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, prop *Proposal, totalTxIndex int) (*types.Transaction, *types.Receipt, error) {
+func (c *Npos) executeProposal(ctx *systemcontract.CallContext, prop *Proposal, totalTxIndex int) (*types.Transaction, *types.Receipt, error) {
 	// Even if the miner is not `running`, it's still working,
 	// the 'miner.worker' will try to FinalizeAndAssemble a block,
 	// in this case, the signTxFn is not set. A `non-miner node` can't execute system governance proposal.
@@ -133,26 +119,26 @@ func (c *Npos) executeProposal(chain consensus.ChainHeaderReader, header *types.
 		return nil, nil, err
 	}
 	//make system governance transaction
-	nonce := state.GetNonce(c.validator)
+	nonce := ctx.Statedb.GetNonce(c.validator)
 
-	tx := types.NewTransaction(nonce, systemcontract.SysGovToAddr, new(big.Int), header.GasLimit, new(big.Int), propRLP)
-	tx, err = c.signTxFn(accounts.Account{Address: c.validator}, tx, chain.Config().ChainID)
+	tx := types.NewTransaction(nonce, systemcontract.SysGovToAddr, new(big.Int), ctx.Header.GasLimit, new(big.Int), propRLP)
+	tx, err = c.signTxFn(accounts.Account{Address: c.validator}, tx, c.chainConfig.ChainID)
 	if err != nil {
 		return nil, nil, err
 	}
 	//add nonce for validator
-	state.SetNonce(c.validator, nonce+1)
-	receipt := c.executeProposalMsg(chain, header, state, prop, totalTxIndex, tx.Hash(), common.Hash{})
+	ctx.Statedb.SetNonce(c.validator, nonce+1)
+	receipt := c.executeProposalMsg(ctx, prop, totalTxIndex, tx.Hash(), ctx.Header.Hash())
 
 	return tx, receipt, nil
 }
 
-func (c *Npos) replayProposal(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, prop *Proposal, totalTxIndex int, tx *types.Transaction) (*types.Receipt, error) {
+func (c *Npos) replayProposal(ctx *systemcontract.CallContext, prop *Proposal, totalTxIndex int, tx *types.Transaction) (*types.Receipt, error) {
 	sender, err := types.Sender(c.signer, tx)
 	if err != nil {
 		return nil, err
 	}
-	if sender != header.Coinbase {
+	if sender != ctx.Header.Coinbase {
 		return nil, errors.New("invalid sender for system governance transaction")
 	}
 	propRLP, err := rlp.EncodeToBytes(prop)
@@ -163,50 +149,48 @@ func (c *Npos) replayProposal(chain consensus.ChainHeaderReader, header *types.H
 		return nil, fmt.Errorf("data missmatch, proposalID: %s, rlp: %s, txHash:%s, txData:%s", prop.Id.String(), hexutil.Encode(propRLP), tx.Hash().String(), hexutil.Encode(tx.Data()))
 	}
 	//make system governance transaction
-	nonce := state.GetNonce(sender)
+	nonce := ctx.Statedb.GetNonce(sender)
 	//add nonce for validator
-	state.SetNonce(sender, nonce+1)
-	receipt := c.executeProposalMsg(chain, header, state, prop, totalTxIndex, tx.Hash(), header.Hash())
+	ctx.Statedb.SetNonce(sender, nonce+1)
+	receipt := c.executeProposalMsg(ctx, prop, totalTxIndex, tx.Hash(), ctx.Header.Hash())
 
 	return receipt, nil
 }
 
-func (c *Npos) executeProposalMsg(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, prop *Proposal, totalTxIndex int, txHash, bHash common.Hash) *types.Receipt {
+func (c *Npos) executeProposalMsg(ctx *systemcontract.CallContext, prop *Proposal, totalTxIndex int, txHash, bHash common.Hash) *types.Receipt {
 	var receipt *types.Receipt
 	action := prop.Action.Uint64()
 	switch action {
 	case 0:
 		// evm action.
-		receipt = c.executeEvmCallProposal(chain, header, state, prop, totalTxIndex, txHash, bHash)
+		receipt = c.executeEvmCallProposal(ctx, prop, totalTxIndex, txHash, bHash)
 	case 1:
 		// delete code action
-		ok := state.Erase(prop.To)
-		receipt = types.NewReceipt([]byte{}, ok != true, header.GasUsed)
+		ok := ctx.Statedb.Erase(prop.To)
+		receipt = types.NewReceipt([]byte{}, !ok, ctx.Header.GasUsed)
 		log.Info("executeProposalMsg", "action", "erase", "id", prop.Id.String(), "to", prop.To, "txHash", txHash.String(), "success", ok)
 	default:
-		receipt = types.NewReceipt([]byte{}, true, header.GasUsed)
+		receipt = types.NewReceipt([]byte{}, true, ctx.Header.GasUsed)
 		log.Warn("executeProposalMsg failed, unsupported action", "action", action, "id", prop.Id.String(), "from", prop.From, "to", prop.To, "value", prop.Value.String(), "data", hexutil.Encode(prop.Data), "txHash", txHash.String())
 	}
 
 	receipt.TxHash = txHash
 	receipt.BlockHash = bHash
-	receipt.BlockNumber = header.Number
-	receipt.TransactionIndex = uint(state.TxIndex())
+	receipt.BlockNumber = ctx.Header.Number
+	receipt.TransactionIndex = uint(ctx.Statedb.TxIndex())
 
 	return receipt
 }
 
 // the returned value should not nil.
-func (c *Npos) executeEvmCallProposal(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, prop *Proposal, totalTxIndex int, txHash, bHash common.Hash) *types.Receipt {
-	// actually run the governance message
-	msg := vmcaller.NewLegacyMessage(prop.From, &prop.To, 0, prop.Value, header.GasLimit, new(big.Int), prop.Data, false)
-	state.Prepare(txHash, totalTxIndex)
-	_, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig)
-
+func (c *Npos) executeEvmCallProposal(ctx *systemcontract.CallContext, prop *Proposal, totalTxIndex int, txHash, bHash common.Hash) *types.Receipt {
+	// actually call evm with proposal infos
+	ctx.Statedb.Prepare(txHash, totalTxIndex)
+	_, err := systemcontract.VmCallWithValue(ctx, prop.From, prop.To, prop.Data, prop.Value)
 	// governance message will not actually consumes gas
-	receipt := types.NewReceipt([]byte{}, err != nil, header.GasUsed)
+	receipt := types.NewReceipt([]byte{}, err != nil, ctx.Header.GasUsed)
 	// Set the receipt logs and create a bloom for filtering
-	receipt.Logs = state.GetLogs(txHash, bHash)
+	receipt.Logs = ctx.Statedb.GetLogs(txHash, bHash)
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
 
 	log.Info("executeProposalMsg", "action", "evmCall", "id", prop.Id.String(), "from", prop.From, "to", prop.To, "value", prop.Value.String(), "data", hexutil.Encode(prop.Data), "txHash", txHash.String(), "err", err)
@@ -250,13 +234,12 @@ func (c *Npos) ApplySysTx(evm *vm.EVM, state *state.StateDB, txIndex int, sender
 	case 0:
 		// evm action.
 		// actually run the governance message
-		msg := vmcaller.NewLegacyMessage(prop.From, &prop.To, 0, prop.Value, tx.Gas(), new(big.Int), prop.Data, false)
 		state.Prepare(tx.Hash(), txIndex)
 		evm.TxContext = vm.TxContext{
-			Origin:   msg.From(),
-			GasPrice: new(big.Int).Set(msg.GasPrice()),
+			Origin:   prop.From,
+			GasPrice: new(big.Int),
 		}
-		ret, _, vmerr = evm.Call(vm.AccountRef(msg.From()), *msg.To(), msg.Data(), msg.Gas(), msg.Value())
+		ret, _, vmerr = evm.Call(vm.AccountRef(prop.From), prop.To, prop.Data, tx.Gas(), prop.Value)
 		state.Finalise(true)
 	case 1:
 		// delete code action
@@ -288,19 +271,19 @@ func (c *Npos) ValidateTx(sender common.Address, tx *types.Transaction, header *
 	return nil
 }
 
-func (c *Npos) getBlacklist(header *types.Header, parentState *state.StateDB) (map[common.Address]blacklistDirection, error) {
+func (c *Npos) getBlacklist(header *types.Header, parentState *state.StateDB) (map[common.Address]bannedDirection, error) {
 	defer func(start time.Time) {
 		getblacklistTimer.UpdateSince(start)
 	}(time.Now())
 
 	if v, ok := c.blacklists.Get(header.ParentHash); ok {
-		return v.(map[common.Address]blacklistDirection), nil
+		return v.(map[common.Address]bannedDirection), nil
 	}
 
 	c.blLock.Lock()
 	defer c.blLock.Unlock()
 	if v, ok := c.blacklists.Get(header.ParentHash); ok {
-		return v.(map[common.Address]blacklistDirection), nil
+		return v.(map[common.Address]bannedDirection), nil
 	}
 
 	// if the last updates is long ago, we don't need to get blacklist from the contract.
@@ -310,7 +293,7 @@ func (c *Npos) getBlacklist(header *types.Header, parentState *state.StateDB) (m
 		parent := c.chain.GetHeader(header.ParentHash, num-1)
 		if parent != nil {
 			if v, ok := c.blacklists.Get(parent.ParentHash); ok {
-				m := v.(map[common.Address]blacklistDirection)
+				m := v.(map[common.Address]bannedDirection)
 				c.blacklists.Add(header.ParentHash, m)
 				return m, nil
 			}
@@ -344,7 +327,7 @@ func (c *Npos) getBlacklist(header *types.Header, parentState *state.StateDB) (m
 		return nil, err
 	}
 
-	m := make(map[common.Address]blacklistDirection)
+	m := make(map[common.Address]bannedDirection)
 	for _, from := range froms {
 		m[from] = DirectionFrom
 	}
@@ -370,7 +353,7 @@ func (c *Npos) CreateEvmExtraValidator(header *types.Header, parentState *state.
 		log.Error("getEventCheckRules failed", "err", err)
 		return nil
 	}
-	return &blacklistValidator{
+	return &daoRulesValidator{
 		blacks: blacks,
 		rules:  rules,
 	}
@@ -461,6 +444,7 @@ func (c *Npos) getEventCheckRulesLen(header *types.Header, parentState *state.St
 	return int(ln), nil
 }
 
+// commonCallContract only for interacting with those contracts which do no includes `BLOCKHASH` opcode
 func (c *Npos) commonCallContract(header *types.Header, statedb *state.StateDB, contractABI abi.ABI, addr common.Address, method string, expectResultLen int, args ...interface{}) ([]interface{}, error) {
 	data, err := contractABI.Pack(method, args...)
 	if err != nil {
@@ -468,10 +452,15 @@ func (c *Npos) commonCallContract(header *types.Header, statedb *state.StateDB, 
 		return nil, err
 	}
 
-	msg := vmcaller.NewLegacyMessage(header.Coinbase, &addr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
+	//the newMinimalChainContext is only for interacting with those contracts which do no includes `BLOCKHASH` opcode
+	ctx := &systemcontract.CallContext{
+		Statedb:      statedb,
+		Header:       header,
+		ChainContext: newMinimalChainContext(c),
+		ChainConfig:  c.chainConfig,
+	}
+	result, err := systemcontract.VmCall(ctx, addr, data)
 
-	// Note: It's safe to use minimalChainContext for executing AddressListContract
-	result, err := vmcaller.ExecuteMsg(msg, statedb, header, newMinimalChainContext(c), c.chainConfig)
 	if err != nil {
 		return nil, err
 	}

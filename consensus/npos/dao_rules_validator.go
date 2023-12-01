@@ -11,12 +11,12 @@ type EventCheckRule struct {
 	Checks   map[int]common.AddressCheckType
 }
 
-type blacklistValidator struct {
-	blacks map[common.Address]blacklistDirection
+type daoRulesValidator struct {
+	blacks map[common.Address]bannedDirection
 	rules  map[common.Hash]*EventCheckRule
 }
 
-func (b *blacklistValidator) IsAddressDenied(address common.Address, cType common.AddressCheckType) (hit bool) {
+func (b *daoRulesValidator) IsAddressBanned(address common.Address, cType common.AddressCheckType) (hit bool) {
 	d, exist := b.blacks[address]
 	if exist {
 		switch cType {
@@ -38,7 +38,7 @@ func (b *blacklistValidator) IsAddressDenied(address common.Address, cType commo
 	return
 }
 
-func (b *blacklistValidator) IsLogDenied(evLog *types.Log) bool {
+func (b *daoRulesValidator) IsAddressBannedFromLog(evLog *types.Log) bool {
 	if nil == evLog || len(evLog.Topics) <= 1 {
 		return false
 	}
@@ -50,7 +50,7 @@ func (b *blacklistValidator) IsLogDenied(evLog *types.Log) bool {
 				continue
 			}
 			addr := common.BytesToAddress(evLog.Topics[idx].Bytes())
-			if b.IsAddressDenied(addr, checkType) {
+			if b.IsAddressBanned(addr, checkType) {
 				return true
 			}
 		}

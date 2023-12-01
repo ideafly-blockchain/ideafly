@@ -1324,6 +1324,8 @@ var (
 	AddressListContractAddr = common.HexToAddress("0x000000000000000000000000000000000000D004")
 	// SysGovToAddr is the To address for the system governance transaction, NOT contract address
 	SysGovToAddr = common.HexToAddress("0x000000000000000000000000000000000000ffff")
+	// engine caller is a dedicated address for the Engine code to interactive with the system contracts.
+	EngineCaller = common.HexToAddress("0x0000000000000000004E506F5320456E67696e65")
 
 	abiMap map[string]abi.ABI
 )

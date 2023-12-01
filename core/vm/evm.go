@@ -176,8 +176,8 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 
 	// Check whether the involved addresses are denied if needed
 	if evm.Context.ExtraValidator != nil && evm.depth > 0 {
-		if evm.Context.ExtraValidator.IsAddressDenied(caller.Address(), common.CheckFrom) ||
-			evm.Context.ExtraValidator.IsAddressDenied(addr, common.CheckTo) {
+		if evm.Context.ExtraValidator.IsAddressBanned(caller.Address(), common.CheckFrom) ||
+			evm.Context.ExtraValidator.IsAddressBanned(addr, common.CheckTo) {
 			return nil, gas, types.ErrAddressDenied
 		}
 	}
@@ -271,8 +271,8 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 
 	// Check whether the involved addresses are denied if needed
 	if evm.Context.ExtraValidator != nil {
-		if evm.Context.ExtraValidator.IsAddressDenied(caller.Address(), common.CheckFrom) ||
-			evm.Context.ExtraValidator.IsAddressDenied(addr, common.CheckTo) {
+		if evm.Context.ExtraValidator.IsAddressBanned(caller.Address(), common.CheckFrom) ||
+			evm.Context.ExtraValidator.IsAddressBanned(addr, common.CheckTo) {
 			return nil, gas, types.ErrAddressDenied
 		}
 	}
@@ -328,8 +328,8 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 
 	// Check whether the involved addresses are denied if needed
 	if evm.Context.ExtraValidator != nil {
-		if evm.Context.ExtraValidator.IsAddressDenied(caller.Address(), common.CheckFrom) ||
-			evm.Context.ExtraValidator.IsAddressDenied(addr, common.CheckTo) {
+		if evm.Context.ExtraValidator.IsAddressBanned(caller.Address(), common.CheckFrom) ||
+			evm.Context.ExtraValidator.IsAddressBanned(addr, common.CheckTo) {
 			return nil, gas, types.ErrAddressDenied
 		}
 	}
@@ -376,8 +376,8 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 
 	// Check whether the involved addresses are denied if needed
 	if evm.Context.ExtraValidator != nil {
-		if evm.Context.ExtraValidator.IsAddressDenied(caller.Address(), common.CheckFrom) ||
-			evm.Context.ExtraValidator.IsAddressDenied(addr, common.CheckTo) {
+		if evm.Context.ExtraValidator.IsAddressBanned(caller.Address(), common.CheckFrom) ||
+			evm.Context.ExtraValidator.IsAddressBanned(addr, common.CheckTo) {
 			return nil, gas, types.ErrAddressDenied
 		}
 	}

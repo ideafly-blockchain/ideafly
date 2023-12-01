@@ -22,10 +22,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"math/big"
 	"math/rand"
-	"sort"
 	"sync"
 	"time"
 
@@ -35,7 +33,6 @@ import (
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/consensus/npos/systemcontract"
-	"github.com/ethereum/go-ethereum/consensus/npos/vmcaller"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -60,10 +57,10 @@ const (
 	inmemoryBlacklist = 21 // Number of recent blacklist snapshots to keep in memory
 )
 
-type blacklistDirection uint
+type bannedDirection uint
 
 const (
-	DirectionFrom blacklistDirection = iota
+	DirectionFrom bannedDirection = iota
 	DirectionTo
 	DirectionBoth
 )
@@ -574,7 +571,12 @@ func (c *Npos) Prepare(chain consensus.ChainHeaderReader, header *types.Header) 
 	header.Extra = header.Extra[:extraVanity]
 
 	if number%c.config.Epoch == 0 {
-		newSortedValidators, err := c.getTopValidators(chain, header)
+		ctx := &systemcontract.CallContext{
+			Header:       header,
+			ChainContext: newChainContext(chain, c),
+			ChainConfig:  c.chainConfig,
+		}
+		newSortedValidators, err := c.getTopValidators(ctx)
 		if err != nil {
 			return err
 		}
@@ -603,8 +605,14 @@ func (c *Npos) Prepare(chain consensus.ChainHeaderReader, header *types.Header) 
 // Finalize implements consensus.Engine, ensuring no uncles are set, nor block
 // rewards given.
 func (c *Npos) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, txs *[]*types.Transaction, uncles []*types.Header, receipts *[]*types.Receipt, systemTxs []*types.Transaction) error {
+	ctx := &systemcontract.CallContext{
+		Statedb:      state,
+		Header:       header,
+		ChainContext: newChainContext(chain, c),
+		ChainConfig:  c.chainConfig,
+	}
 	if header.Difficulty.Cmp(diffInTurn) != 0 {
-		if err := c.tryPunishValidator(chain, header, state); err != nil {
+		if err := c.tryPunishValidator(ctx, chain); err != nil {
 			return err
 		}
 	}
@@ -621,14 +629,14 @@ func (c *Npos) Finalize(chain consensus.ChainHeaderReader, header *types.Header,
 
 	// execute block reward tx.
 	if len(*txs) > 0 {
-		if err := c.trySendBlockReward(chain, header, state); err != nil {
+		if err := c.trySendBlockReward(ctx); err != nil {
 			return err
 		}
 	}
 
 	// do epoch thing at the end, because it will update active validators
 	if header.Number.Uint64()%c.config.Epoch == 0 {
-		newValidators, err := c.syncWithSysContractAtEpoch(chain, header, state)
+		newValidators, err := c.syncWithSysContractAtEpoch(ctx, chain)
 		if err != nil {
 			return err
 		}
@@ -645,7 +653,7 @@ func (c *Npos) Finalize(chain consensus.ChainHeaderReader, header *types.Header,
 	}
 
 	//handle system governance Proposal
-	proposalCount, err := c.getPassedProposalCount(chain, header, state)
+	proposalCount, err := c.getPassedProposalCount(ctx)
 	if err != nil {
 		return err
 	}
@@ -657,13 +665,13 @@ func (c *Npos) Finalize(chain consensus.ChainHeaderReader, header *types.Header,
 	// passed proposals, and then finish then all.
 	pIds := make([]*big.Int, 0, proposalCount)
 	for i := uint32(0); i < proposalCount; i++ {
-		prop, err := c.getPassedProposalByIndex(chain, header, state, i)
+		prop, err := c.getPassedProposalByIndex(ctx, i)
 		if err != nil {
 			return err
 		}
 		// execute the system governance Proposal
 		tx := systemTxs[int(i)]
-		receipt, err := c.replayProposal(chain, header, state, prop, len(*txs), tx)
+		receipt, err := c.replayProposal(ctx, prop, len(*txs), tx)
 		if err != nil {
 			return err
 		}
@@ -674,7 +682,7 @@ func (c *Npos) Finalize(chain consensus.ChainHeaderReader, header *types.Header,
 	}
 	// Finish all proposal
 	for i := uint32(0); i < proposalCount; i++ {
-		err = c.finishProposalById(chain, header, state, pIds[i])
+		err = c.finishProposalById(ctx, pIds[i])
 		if err != nil {
 			return err
 		}
@@ -696,23 +704,30 @@ func (c *Npos) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *ty
 		}
 	}()
 
+	ctx := &systemcontract.CallContext{
+		Statedb:      state,
+		Header:       header,
+		ChainContext: newChainContext(chain, c),
+		ChainConfig:  c.chainConfig,
+	}
+
 	// punish validator if necessary
 	if header.Difficulty.Cmp(diffInTurn) != 0 {
-		if err := c.tryPunishValidator(chain, header, state); err != nil {
+		if err := c.tryPunishValidator(ctx, chain); err != nil {
 			panic(err)
 		}
 	}
 
 	// deposit block reward if any tx exists.
 	if len(txs) > 0 {
-		if err := c.trySendBlockReward(chain, header, state); err != nil {
+		if err := c.trySendBlockReward(ctx); err != nil {
 			panic(err)
 		}
 	}
 
 	// do epoch thing at the end, because it will update active validators
 	if header.Number.Uint64()%c.config.Epoch == 0 {
-		if _, err := c.syncWithSysContractAtEpoch(chain, header, state); err != nil {
+		if _, err := c.syncWithSysContractAtEpoch(ctx, chain); err != nil {
 			panic(err)
 		}
 	}
@@ -724,7 +739,7 @@ func (c *Npos) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *ty
 	// the 'miner.worker' will try to FinalizeAndAssemble a block,
 	// in this case, the signTxFn is not set. A `non-miner node` can't execute system governance proposal.
 	if c.signTxFn != nil {
-		proposalCount, err := c.getPassedProposalCount(chain, header, state)
+		proposalCount, err := c.getPassedProposalCount(ctx)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -734,12 +749,12 @@ func (c *Npos) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *ty
 		// passed proposals, and then finish then all.
 		pIds := make([]*big.Int, 0, proposalCount)
 		for i := uint32(0); i < proposalCount; i++ {
-			prop, err := c.getPassedProposalByIndex(chain, header, state, i)
+			prop, err := c.getPassedProposalByIndex(ctx, i)
 			if err != nil {
 				return nil, nil, err
 			}
 			// execute the system governance Proposal
-			tx, receipt, err := c.executeProposal(chain, header, state, prop, len(txs))
+			tx, receipt, err := c.executeProposal(ctx, prop, len(txs))
 			if err != nil {
 				return nil, nil, err
 			}
@@ -750,7 +765,7 @@ func (c *Npos) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *ty
 		}
 		// Finish all proposal
 		for i := uint32(0); i < proposalCount; i++ {
-			err = c.finishProposalById(chain, header, state, pIds[i])
+			err = c.finishProposalById(ctx, pIds[i])
 			if err != nil {
 				return nil, nil, err
 			}
@@ -763,251 +778,6 @@ func (c *Npos) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *ty
 
 	// Assemble and return the final block for sealing
 	return types.NewBlock(header, txs, nil, receipts, new(trie.Trie)), receipts, nil
-}
-
-func (c *Npos) trySendBlockReward(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) error {
-	fee := state.GetBalance(consensus.FeeRecoder)
-	if fee.Cmp(common.Big0) <= 0 {
-		return nil
-	}
-
-	// Miner will send tx to deposit block fees to contract, add to his balance first.
-	state.AddBalance(header.Coinbase, fee)
-	// reset fee
-	state.SetBalance(consensus.FeeRecoder, common.Big0)
-
-	method := "distributeBlockReward"
-	data, err := c.abi[systemcontract.ValidatorsContractName].Pack(method)
-	if err != nil {
-		log.Error("Can't pack data for distributeBlockReward", "err", err)
-		return err
-	}
-
-	msg := vmcaller.NewLegacyMessage(header.Coinbase, systemcontract.GetValidatorAddr(header.Number, c.chainConfig), 0, fee, math.MaxUint64, new(big.Int), data, false)
-
-	if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *Npos) tryPunishValidator(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) error {
-	number := header.Number.Uint64()
-	snap, err := c.snapshot(chain, number-1, header.ParentHash, nil)
-	if err != nil {
-		return err
-	}
-	validators := snap.validators()
-	outTurnValidator := validators[number%uint64(len(validators))]
-	// check sigend recently or not
-	signedRecently := false
-	for _, recent := range snap.Recents {
-		if recent == outTurnValidator {
-			signedRecently = true
-			break
-		}
-	}
-	if !signedRecently {
-		if err := c.punishValidator(outTurnValidator, chain, header, state); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// syncWithSysContractAtEpoch: set current validators to system contract, decreaseMissedBlocksCounter, get and return next epoch validators
-func (c *Npos) syncWithSysContractAtEpoch(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) ([]common.Address, error) {
-	// NPoS use a look-back validators set for safety(when supporting fast-sync).
-	// the authorized validators come from the header.Extra at block currentNum - EPOCH.
-	checkpointHeader := chain.GetHeaderByNumber(header.Number.Uint64() - c.config.Epoch)
-	if checkpointHeader == nil {
-		return nil, consensus.ErrUnknownAncestor
-	}
-	// get validators from headers and use that for new validator set
-	validators := make([]common.Address, (len(checkpointHeader.Extra)-extraVanity-extraSeal)/common.AddressLength)
-	for i := 0; i < len(validators); i++ {
-		copy(validators[i][:], checkpointHeader.Extra[extraVanity+i*common.AddressLength:])
-	}
-	if len(validators) < 1 {
-		return []common.Address{}, errInvalidExtraValidators
-	}
-	if err := c.updateValidators(validators, chain, header, state); err != nil {
-		return []common.Address{}, err
-	}
-
-	//  decrease validator missed blocks counter at epoch
-	if err := c.decreaseMissedBlocksCounter(chain, header, state); err != nil {
-		return []common.Address{}, err
-	}
-
-	nextEpochValidators, err := c.getTopValidators(chain, header)
-	if err != nil {
-		return []common.Address{}, err
-	}
-
-	return nextEpochValidators, nil
-}
-
-// initializeSystemContracts initializes all genesis system contracts.
-func (c *Npos) initializeSystemContracts(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) error {
-	snap, err := c.snapshot(chain, 0, header.ParentHash, nil)
-	if err != nil {
-		return err
-	}
-
-	genesisValidators := snap.validators()
-	if len(genesisValidators) == 0 || len(genesisValidators) > maxValidators {
-		return errInvalidValidatorsLength
-	}
-
-	method := "initialize"
-	contracts := []struct {
-		addr    common.Address
-		packFun func() ([]byte, error)
-	}{
-		{systemcontract.ValidatorsContractAddr, func() ([]byte, error) {
-			gvs := c.config.GenesisValidators
-			if len(gvs) == 0 {
-				return nil, errors.New("missing genesis validators")
-			}
-			vals, managers := make([]common.Address, 0, len(gvs)), make([]common.Address, 0, len(gvs))
-			for _, v := range gvs {
-				vals = append(vals, v.Validator)
-				managers = append(managers, v.Manager)
-			}
-			stakingAdmin := c.config.StakingAdmin
-			return c.abi[systemcontract.ValidatorsContractName].Pack(method, vals, managers, stakingAdmin)
-		}},
-		{systemcontract.PunishContractAddr, func() ([]byte, error) { return c.abi[systemcontract.PunishContractName].Pack(method) }},
-		{systemcontract.AddressListContractAddr, func() ([]byte, error) {
-			return c.abi[systemcontract.AddressListContractName].Pack(method, c.config.GovAdmin)
-		}},
-		{systemcontract.SysGovContractAddr, func() ([]byte, error) {
-			return c.abi[systemcontract.SysGovContractName].Pack(method, c.config.GovAdmin)
-		}},
-	}
-
-	for _, contract := range contracts {
-		data, err := contract.packFun()
-		if err != nil {
-			log.Error("system contract initialize pack failed", "contract", contract.addr, "err", err)
-			return err
-		}
-
-		// directly to execute this consensus engine message, no need the caller's nonce.
-		msg := vmcaller.NewLegacyMessage(header.Coinbase, &contract.addr, 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
-
-		if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
-			log.Error("system contract initialize failed", "contract", contract.addr, "err", err)
-			return err
-		}
-	}
-
-	return nil
-}
-
-// call this at epoch block to get top validators based on the state of epoch block - 1
-func (c *Npos) getTopValidators(chain consensus.ChainHeaderReader, header *types.Header) ([]common.Address, error) {
-	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
-	if parent == nil {
-		return []common.Address{}, consensus.ErrUnknownAncestor
-	}
-	statedb, err := c.stateFn(parent.Root)
-	if err != nil {
-		return []common.Address{}, err
-	}
-
-	method := "getTopValidators"
-	data, err := c.abi[systemcontract.ValidatorsContractName].Pack(method)
-	if err != nil {
-		log.Error("Can't pack data for getTopValidators", "error", err)
-		return []common.Address{}, err
-	}
-
-	msg := vmcaller.NewLegacyMessage(header.Coinbase, systemcontract.GetValidatorAddr(parent.Number, c.chainConfig), 0, new(big.Int), math.MaxUint64, new(big.Int), data, false)
-
-	// use parent
-	result, err := vmcaller.ExecuteMsg(msg, statedb, parent, newChainContext(chain, c), c.chainConfig)
-	if err != nil {
-		return []common.Address{}, err
-	}
-
-	// unpack data
-	ret, err := c.abi[systemcontract.ValidatorsContractName].Unpack(method, result)
-	if err != nil {
-		return []common.Address{}, err
-	}
-	if len(ret) != 1 {
-		return []common.Address{}, errors.New("Invalid params length")
-	}
-	validators, ok := ret[0].([]common.Address)
-	if !ok {
-		return []common.Address{}, errors.New("Invalid validators format")
-	}
-	sort.Sort(validatorsAscending(validators))
-	return validators, err
-}
-
-func (c *Npos) updateValidators(vals []common.Address, chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) error {
-	// method
-	method := "updateActiveValidatorSet"
-	data, err := c.abi[systemcontract.ValidatorsContractName].Pack(method, vals, new(big.Int).SetUint64(c.config.Epoch))
-	if err != nil {
-		log.Error("Can't pack data for updateActiveValidatorSet", "error", err)
-		return err
-	}
-
-	// call contract
-	nonce := state.GetNonce(header.Coinbase)
-	msg := vmcaller.NewLegacyMessage(header.Coinbase, systemcontract.GetValidatorAddr(header.Number, c.chainConfig), nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
-	if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
-		log.Error("Can't update validators to contract", "err", err)
-		return err
-	}
-
-	return nil
-}
-
-func (c *Npos) punishValidator(val common.Address, chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) error {
-	// method
-	method := "punish"
-	data, err := c.abi[systemcontract.PunishContractName].Pack(method, val)
-	if err != nil {
-		log.Error("Can't pack data for punish", "error", err)
-		return err
-	}
-
-	// call contract
-	nonce := state.GetNonce(header.Coinbase)
-	msg := vmcaller.NewLegacyMessage(header.Coinbase, systemcontract.GetPunishAddr(header.Number, c.chainConfig), nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
-	if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
-		log.Error("Can't punish validator", "err", err)
-		return err
-	}
-
-	return nil
-}
-
-func (c *Npos) decreaseMissedBlocksCounter(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB) error {
-	// method
-	method := "decreaseMissedBlocksCounter"
-	data, err := c.abi[systemcontract.PunishContractName].Pack(method, new(big.Int).SetUint64(c.config.Epoch))
-	if err != nil {
-		log.Error("Can't pack data for decreaseMissedBlocksCounter", "error", err)
-		return err
-	}
-
-	// call contract
-	nonce := state.GetNonce(header.Coinbase)
-	msg := vmcaller.NewLegacyMessage(header.Coinbase, systemcontract.GetPunishAddr(header.Number, c.chainConfig), nonce, new(big.Int), math.MaxUint64, new(big.Int), data, true)
-	if _, err := vmcaller.ExecuteMsg(msg, state, header, newChainContext(chain, c), c.chainConfig); err != nil {
-		log.Error("Can't decrease missed blocks counter for validator", "err", err)
-		return err
-	}
-
-	return nil
 }
 
 // Authorize injects a private key into the consensus engine to mint new blocks

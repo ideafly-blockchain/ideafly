@@ -77,7 +77,7 @@ type Message interface {
 	Value() *big.Int
 
 	Nonce() uint64
-	IsFake() bool
+	SkipAccountChecks() bool
 	Data() []byte
 	AccessList() types.AccessList
 }
@@ -216,7 +216,7 @@ func (st *StateTransition) buyGas() error {
 
 func (st *StateTransition) preCheck() error {
 	// Only check transactions that are not fake
-	if !st.msg.IsFake() {
+	if !st.msg.SkipAccountChecks() {
 		// Make sure this transaction's nonce is correct.
 		stNonce := st.state.GetNonce(st.msg.From())
 		if msgNonce := st.msg.Nonce(); stNonce < msgNonce {
