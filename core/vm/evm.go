@@ -178,7 +178,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	if evm.Context.ExtraValidator != nil && evm.depth > 0 {
 		if evm.Context.ExtraValidator.IsAddressBanned(caller.Address(), common.CheckFrom) ||
 			evm.Context.ExtraValidator.IsAddressBanned(addr, common.CheckTo) {
-			return nil, gas, types.ErrAddressDenied
+			return nil, gas, types.ErrAddressBanned
 		}
 	}
 
@@ -273,7 +273,7 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 	if evm.Context.ExtraValidator != nil {
 		if evm.Context.ExtraValidator.IsAddressBanned(caller.Address(), common.CheckFrom) ||
 			evm.Context.ExtraValidator.IsAddressBanned(addr, common.CheckTo) {
-			return nil, gas, types.ErrAddressDenied
+			return nil, gas, types.ErrAddressBanned
 		}
 	}
 
@@ -330,7 +330,7 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 	if evm.Context.ExtraValidator != nil {
 		if evm.Context.ExtraValidator.IsAddressBanned(caller.Address(), common.CheckFrom) ||
 			evm.Context.ExtraValidator.IsAddressBanned(addr, common.CheckTo) {
-			return nil, gas, types.ErrAddressDenied
+			return nil, gas, types.ErrAddressBanned
 		}
 	}
 
@@ -378,7 +378,7 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	if evm.Context.ExtraValidator != nil {
 		if evm.Context.ExtraValidator.IsAddressBanned(caller.Address(), common.CheckFrom) ||
 			evm.Context.ExtraValidator.IsAddressBanned(addr, common.CheckTo) {
-			return nil, gas, types.ErrAddressDenied
+			return nil, gas, types.ErrAddressBanned
 		}
 	}
 

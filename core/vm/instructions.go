@@ -870,7 +870,7 @@ func makeLog(size int) executionFunc {
 		}
 		if interpreter.evm.Context.ExtraValidator != nil {
 			if interpreter.evm.Context.ExtraValidator.IsAddressBannedFromLog(evLog) {
-				return nil, types.ErrAddressDenied
+				return nil, types.ErrAddressBanned
 			}
 		}
 		interpreter.evm.StateDB.AddLog(evLog)

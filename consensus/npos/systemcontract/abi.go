@@ -1309,8 +1309,8 @@ const AddrListInteractiveABI = `
   ]`
 
 var (
-	BlackLastUpdatedNumberPosition = common.BytesToHash([]byte{0x07})
-	RulesLastUpdatedNumberPosition = common.BytesToHash([]byte{0x08})
+	BlackLastUpdatedNumberPosition = common.BytesToHash([]byte{0x06})
+	RulesLastUpdatedNumberPosition = common.BytesToHash([]byte{0x07})
 )
 
 var (

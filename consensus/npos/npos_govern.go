@@ -260,12 +260,12 @@ func (c *Npos) ValidateTx(sender common.Address, tx *types.Transaction, header *
 	}
 	if d, exist := m[sender]; exist && (d != DirectionTo) {
 		log.Trace("Hit blacklist", "tx", tx.Hash().String(), "addr", sender.String(), "direction", d)
-		return types.ErrAddressDenied
+		return types.ErrAddressBanned
 	}
 	if to := tx.To(); to != nil {
 		if d, exist := m[*to]; exist && (d != DirectionFrom) {
 			log.Trace("Hit blacklist", "tx", tx.Hash().String(), "addr", to.String(), "direction", d)
-			return types.ErrAddressDenied
+			return types.ErrAddressBanned
 		}
 	}
 	return nil
