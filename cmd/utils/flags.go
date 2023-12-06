@@ -977,10 +977,13 @@ var (
 		Value:    metrics.DefaultConfig.InfluxDBOrganization,
 		Category: flags.MetricsCategory,
 	}
-	// TraceActionFlag is the flag for internal tx
-	TraceActionFlag = &cli.BoolFlag{
-		Name:  "traceaction",
-		Usage: "Trace internal tx call/create/suicide action",
+	InternalTxTraceDisabled = &cli.BoolFlag{
+		Name:  "internaltx.disabled",
+		Usage: "Disable internal txs trace. By default the node will trace and save those internal txs with value greater then 0.",
+	}
+	InternalTxTraceAll = &cli.BoolFlag{
+		Name:  "internaltx.all",
+		Usage: "Trace and save all internal txs action, with input and output data. By default the node will only trace and save those with value greater then 0.",
 	}
 )
 
@@ -1742,8 +1745,11 @@ func SetEthConfig(ctx *cli.Context, stack *node.Node, cfg *ethconfig.Config) {
 	if ctx.IsSet(LightServeFlag.Name) && ctx.Uint64(TxLookupLimitFlag.Name) != 0 {
 		log.Warn("LES server cannot serve old transaction status and cannot connect below les/4 protocol version if transaction lookup index is limited")
 	}
-	if ctx.IsSet(TraceActionFlag.Name) {
-		cfg.TraceAction = ctx.Bool(TraceActionFlag.Name)
+	if ctx.IsSet(InternalTxTraceDisabled.Name) {
+		cfg.InternalTxTraceDisabled = ctx.Bool(InternalTxTraceDisabled.Name)
+	}
+	if ctx.IsSet(InternalTxTraceAll.Name) {
+		cfg.InternalTxTraceAll = ctx.Bool(InternalTxTraceAll.Name)
 	}
 	var ks *keystore.KeyStore
 	if keystores := stack.AccountManager().Backends(keystore.KeyStoreType); len(keystores) > 0 {

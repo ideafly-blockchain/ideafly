@@ -27,10 +27,14 @@ import (
 // Config are the configuration options for the Interpreter
 type Config struct {
 	Debug                   bool      // Enables debugging
-	TraceAction             bool      // Enable trace internal txs
 	Tracer                  EVMLogger // Opcode logger
 	NoBaseFee               bool      // Forces the EIP-1559 baseFee to 0 (needed for 0 price calls)
 	EnablePreimageRecording bool      // Enables recording of SHA3/keccak preimages
+
+	// Disable internal txs trace. By default the node will trace and save those internal txs with value greater then 0.
+	InternalTxTraceDisabled bool
+	// Trace and save all internal txs action, with input and output data. By default the node will only trace and save those with value greater then 0.
+	InternalTxTraceAll bool
 
 	JumpTable *JumpTable // EVM instruction table, automatically populated if unset
 

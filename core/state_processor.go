@@ -87,9 +87,9 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		misc.ApplyDAOHardFork(statedb)
 	}
 
-	if cfg.TraceAction {
+	if !cfg.InternalTxTraceDisabled {
 		cfg.Debug = true
-		tracer = vm.NewActionLogger()
+		tracer = vm.NewActionLogger(cfg.InternalTxTraceAll)
 		cfg.Tracer = tracer
 	}
 
@@ -150,7 +150,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 		commonTxs = append(commonTxs, tx)
-		if cfg.TraceAction {
+		if !cfg.InternalTxTraceDisabled {
 			actions, _ := tracer.GetResult()
 			if len(actions) > 0 {
 				if receipt.Status == types.ReceiptStatusFailed {

@@ -62,7 +62,8 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		CheckpointOracle                      *params.CheckpointOracleConfig `toml:",omitempty"`
 		OverrideTerminalTotalDifficulty       *big.Int                       `toml:",omitempty"`
 		OverrideTerminalTotalDifficultyPassed *bool                          `toml:",omitempty"`
-		TraceAction             bool                           `toml:",omitempty"`
+		InternalTxTraceDisabled               bool                           `toml:",omitempty"`
+		InternalTxTraceAll                    bool                           `toml:",omitempty"`
 	}
 	var enc Config
 	enc.Genesis = c.Genesis
@@ -109,7 +110,8 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.CheckpointOracle = c.CheckpointOracle
 	enc.OverrideTerminalTotalDifficulty = c.OverrideTerminalTotalDifficulty
 	enc.OverrideTerminalTotalDifficultyPassed = c.OverrideTerminalTotalDifficultyPassed
-	enc.TraceAction = c.TraceAction
+	enc.InternalTxTraceDisabled = c.InternalTxTraceDisabled
+	enc.InternalTxTraceAll = c.InternalTxTraceAll
 	return &enc, nil
 }
 
@@ -160,7 +162,8 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		CheckpointOracle                      *params.CheckpointOracleConfig `toml:",omitempty"`
 		OverrideTerminalTotalDifficulty       *big.Int                       `toml:",omitempty"`
 		OverrideTerminalTotalDifficultyPassed *bool                          `toml:",omitempty"`
-		TraceAction                           *bool                          `toml:",omitempty"`
+		InternalTxTraceDisabled               *bool                          `toml:",omitempty"`
+		InternalTxTraceAll                    *bool                          `toml:",omitempty"`
 	}
 	var dec Config
 	if err := unmarshal(&dec); err != nil {
@@ -298,8 +301,11 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	if dec.OverrideTerminalTotalDifficultyPassed != nil {
 		c.OverrideTerminalTotalDifficultyPassed = dec.OverrideTerminalTotalDifficultyPassed
 	}
-	if dec.TraceAction != nil {
-		c.TraceAction = *dec.TraceAction
+	if dec.InternalTxTraceDisabled != nil {
+		c.InternalTxTraceDisabled = *dec.InternalTxTraceDisabled
+	}
+	if dec.InternalTxTraceAll != nil {
+		c.InternalTxTraceAll = *dec.InternalTxTraceAll
 	}
 	return nil
 }

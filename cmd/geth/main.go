@@ -155,7 +155,8 @@ var (
 		utils.MinerNotifyFullFlag,
 		utils.IgnoreLegacyReceiptsFlag,
 		configFileFlag,
-		utils.TraceActionFlag,
+		utils.InternalTxTraceDisabled,
+		utils.InternalTxTraceAll,
 	}, utils.NetworkFlags, utils.DatabasePathFlags)
 
 	rpcFlags = []cli.Flag{

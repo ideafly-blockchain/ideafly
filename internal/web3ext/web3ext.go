@@ -654,6 +654,16 @@ web3._extend({
 			call: 'eth_getBlockReceipts',
 			params: 1,
 		}),
+		new web3._extend.Method({
+			name: 'getInternalTxs',
+			call: 'eth_getInternalTxs',
+			params: 2,
+		}),
+		new web3._extend.Method({
+			name: 'getInternalTxsByTxHash',
+			call: 'eth_getInternalTxsByTxHash',
+			params: 2,
+		}),
 	],
 	properties: [
 		new web3._extend.Property({
