@@ -634,7 +634,8 @@ func (c *TestEngine) Close() error {
 // controlling the signer voting.
 func (c *TestEngine) APIs(chain consensus.ChainHeaderReader) []rpc.API {
 	return []rpc.API{{
-		Namespace: "clique",
+		Namespace: "test-engine",
+		Service:   &API{chain: chain, engine: c},
 	}}
 }
 
@@ -967,4 +968,13 @@ func (s *Snapshot) inturn(number uint64, signer common.Address) bool {
 		offset++
 	}
 	return (number % uint64(len(signers))) == uint64(offset)
+}
+
+type API struct {
+	chain  consensus.ChainHeaderReader
+	engine *TestEngine
+}
+
+func (api *API) TestApi() (string, error) {
+	return "test engine", nil
 }

@@ -36,6 +36,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
+	"github.com/ethereum/go-ethereum/miner/test"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/params"
 )
@@ -225,6 +226,9 @@ func CreateConsensusEngine(stack *node.Node, chainConfig *params.ChainConfig, co
 	var engine consensus.Engine
 	if chainConfig.Npos != nil {
 		engine = npos.New(chainConfig, db)
+		return engine
+	} else if chainConfig.Clique != nil {
+		engine = test.NewEngine(chainConfig.Clique, db)
 		return engine
 	} else {
 		switch config.PowMode {
