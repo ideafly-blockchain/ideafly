@@ -19,6 +19,7 @@ package eth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -135,7 +136,12 @@ func (b *EthAPIBackend) BlockByHash(ctx context.Context, hash common.Hash) (*typ
 
 func (b *EthAPIBackend) BlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (*types.Block, error) {
 	if blockNr, ok := blockNrOrHash.Number(); ok {
-		return b.BlockByNumber(ctx, blockNr)
+		//The BlockByNumber method is called in many places, so we won’t modify it directly yet.
+		block, err := b.BlockByNumber(ctx, blockNr)
+		if block == nil && err == nil {
+			err = fmt.Errorf("block #%s not found", blockNrOrHash.String())
+		}
+		return block, err
 	}
 	if hash, ok := blockNrOrHash.Hash(); ok {
 		header := b.eth.blockchain.GetHeaderByHash(hash)

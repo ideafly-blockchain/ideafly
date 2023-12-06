@@ -1130,9 +1130,6 @@ func DoEstimateGas(ctx context.Context, b Backend, args TransactionArgs, blockNr
 		if err != nil {
 			return 0, err
 		}
-		if block == nil {
-			return 0, errors.New("block not found")
-		}
 		hi = block.GasLimit()
 	}
 	// Normalize the max fee per gas the call is willing to spend.
