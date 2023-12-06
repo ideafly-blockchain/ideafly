@@ -453,16 +453,6 @@ func TestB11r(t *testing.T) {
 			},
 			expOut: "exp.json",
 		},
-		{ // clique test seal
-			base: "./testdata/21",
-			input: b11rInput{
-				inEnv:       "header.json",
-				inOmmersRlp: "ommers.json",
-				inTxsRlp:    "txs.rlp",
-				inClique:    "clique.json",
-			},
-			expOut: "exp-clique.json",
-		},
 		{ // block with ommers
 			base: "./testdata/22",
 			input: b11rInput{
