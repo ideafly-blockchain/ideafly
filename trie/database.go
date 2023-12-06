@@ -487,7 +487,7 @@ func (db *Database) Node(hash common.Hash) ([]byte, error) {
 	if flushed := db.GetFlushedHashCache(); flushed != nil {
 		if n, e := flushed.Get(hash); e {
 			entry := &cachedNode{
-				node: simplifyNode(n),
+				node: simplifyNode(createNode(n)),
 			}
 			return entry.rlp(), nil
 		}
