@@ -309,12 +309,15 @@ func expandNode(hash hashNode, n node) node {
 }
 
 // createNode creates new clean node using the old dirty one
-func createNode(old node) node {
+func createNode(old node, compactKey bool) node {
 	switch n := old.(type) {
 	case *shortNode:
+		if compactKey {
+			n.Key = hexToCompact(n.Key)
+		}
 		return &shortNode{
 			Key: n.Key,
-			Val: createNode(n.Val),
+			Val: createNode(n.Val, compactKey),
 			flags: nodeFlag{
 				hash: n.flags.hash,
 			},
@@ -331,7 +334,7 @@ func createNode(old node) node {
 				if len(hash) == 32 {
 					node.Children[i] = hash
 				} else {
-					node.Children[i] = createNode(n.Children[i])
+					node.Children[i] = createNode(n.Children[i], compactKey)
 				}
 			}
 		}
@@ -439,7 +442,7 @@ func (db *Database) node(hash common.Hash) node {
 	// Retrieve the node from the dirty cache if available
 	if flushed := db.GetFlushedHashCache(); flushed != nil {
 		if n, e := flushed.Get(hash); e {
-			return createNode(n)
+			return createNode(n, false)
 		}
 	}
 	db.lock.RLock()
@@ -487,7 +490,7 @@ func (db *Database) Node(hash common.Hash) ([]byte, error) {
 	if flushed := db.GetFlushedHashCache(); flushed != nil {
 		if n, e := flushed.Get(hash); e {
 			entry := &cachedNode{
-				node: simplifyNode(createNode(n)),
+				node: simplifyNode(createNode(n, true)),
 			}
 			return entry.rlp(), nil
 		}
