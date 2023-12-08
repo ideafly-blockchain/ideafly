@@ -162,7 +162,7 @@ func (t *ActionLogger) GetResult() ([]*types.Action, error) {
 	var addAction func(actionFrame *types.ActionFrame)
 	addAction = func(actionFrame *types.ActionFrame) {
 		for i := 0; i < len(actionFrame.Calls); i++ {
-			if t.traceAll || actionFrame.Calls[i].Value.Sign() > 0 {
+			if t.traceAll || (actionFrame.Calls[i].Value != nil && actionFrame.Calls[i].Value.Sign() > 0) {
 				actions = append(actions, &actionFrame.Calls[i].Action)
 			}
 			addAction(&actionFrame.Calls[i])

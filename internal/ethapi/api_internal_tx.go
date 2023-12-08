@@ -94,7 +94,7 @@ func (api *BlockChainAPI) filterAction(actions []*types.Action, filter *ActionFi
 			continue
 		}
 
-		if filter.MinValue != nil && filter.MinValue.Cmp(act.Value) > 0 {
+		if filter.MinValue != nil && (act.Value == nil || filter.MinValue.Cmp(act.Value) > 0) {
 			continue
 		}
 

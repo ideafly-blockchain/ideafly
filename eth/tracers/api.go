@@ -1138,7 +1138,7 @@ func (api *API) filterAction(actions []*types.Action, filter *ActionConfig) []*t
 			continue
 		}
 
-		if filter.MinValue != nil && filter.MinValue.Cmp(act.Value) > 0 {
+		if filter.MinValue != nil && (act.Value == nil || filter.MinValue.Cmp(act.Value) > 0) {
 			continue
 		}
 
