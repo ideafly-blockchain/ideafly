@@ -11,7 +11,7 @@ BINARY_NAME_PREFIX = geth
 ENTRY_FILE_GETH_DIR = github.com/ethereum/go-ethereum/cmd/geth
 # ====end of variables about cross compile====
 
-.PHONY: geth android ios evm all test clean
+.PHONY: geth android ios evm all test clean docker-local
 
 GOBIN = ./build/bin
 GO ?= latest
@@ -61,6 +61,10 @@ devtools:
 crosstools:
 	GO111MODULE=off go install github.com/stars-labs/xgo2
 
-build_linux_amd64:
+geth-linux-amd64:
 	xgo2 --goproxy="${GO_PROXY}" --targets=linux/amd64 -ldflags "-s -w -X 'main.gitCommit=${BIN_REVISION_STRING}' -X 'main.gitDate=${GIT_TIME}'" -dest=${DEST_DIR} -out ${BINARY_NAME_PREFIX} --pkg=${ENTRY_FILE_GETH_DIR} .
 	@echo "The output binary file: $(DEST_DIR)/${BINARY_NAME_PREFIX}-linux-amd64"
+
+geth-linux-arm64:
+	xgo2 --goproxy="${GO_PROXY}" --targets=linux/arm64 -ldflags "-s -w -X 'main.gitCommit=${BIN_REVISION_STRING}' -X 'main.gitDate=${GIT_TIME}'" -dest=${DEST_DIR} -out ${BINARY_NAME_PREFIX} --pkg=${ENTRY_FILE_GETH_DIR} .
+	@echo "The output binary file: $(DEST_DIR)/${BINARY_NAME_PREFIX}-linux-arm64"
