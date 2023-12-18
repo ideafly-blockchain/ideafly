@@ -158,7 +158,6 @@ var stateTransitionCommand = &cli.Command{
 		t8ntool.ForknameFlag,
 		t8ntool.ChainIDFlag,
 		t8ntool.RewardFlag,
-		t8ntool.VerbosityFlag,
 	},
 }
 
@@ -171,7 +170,6 @@ var transactionCommand = &cli.Command{
 		t8ntool.InputTxsFlag,
 		t8ntool.ChainIDFlag,
 		t8ntool.ForknameFlag,
-		t8ntool.VerbosityFlag,
 	},
 }
 
@@ -187,10 +185,6 @@ var blockBuilderCommand = &cli.Command{
 		t8ntool.InputOmmersFlag,
 		t8ntool.InputTxsRlpFlag,
 		t8ntool.SealCliqueFlag,
-		t8ntool.SealEthashFlag,
-		t8ntool.SealEthashDirFlag,
-		t8ntool.SealEthashModeFlag,
-		t8ntool.VerbosityFlag,
 	},
 }
 
