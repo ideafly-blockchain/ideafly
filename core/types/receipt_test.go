@@ -128,7 +128,6 @@ var (
 	}
 
 	blockNumber = big.NewInt(1)
-	blockTime   = uint64(2)
 	blockHash   = common.BytesToHash([]byte{0x03, 0x14})
 
 	// Create the corresponding receipts

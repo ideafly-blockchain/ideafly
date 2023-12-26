@@ -38,7 +38,6 @@ type Proposal struct {
 }
 
 func (c *Npos) getPassedProposalCount(ctx *systemcontract.CallContext) (uint32, error) {
-
 	method := "getPassedProposalCount"
 	data, err := c.abi[systemcontract.SysGovContractName].Pack(method)
 	if err != nil {
@@ -67,7 +66,6 @@ func (c *Npos) getPassedProposalCount(ctx *systemcontract.CallContext) (uint32, 
 }
 
 func (c *Npos) getPassedProposalByIndex(ctx *systemcontract.CallContext, idx uint32) (*Proposal, error) {
-
 	method := "getPassedProposalByIndex"
 	data, err := c.abi[systemcontract.SysGovContractName].Pack(method, idx)
 	if err != nil {

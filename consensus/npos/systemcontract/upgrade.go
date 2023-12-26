@@ -27,7 +27,6 @@ func ApplySystemContractUpgrade(version SysContractVersion, state *state.StateDB
 	if config == nil || header == nil || state == nil {
 		return
 	}
-	height := header.Number
 
 	var sysContracts []IUpgradeAction
 	switch version {
@@ -36,9 +35,9 @@ func ApplySystemContractUpgrade(version SysContractVersion, state *state.StateDB
 	}
 
 	for _, contract := range sysContracts {
-		log.Info("system contract upgrade", "version", version, "name", contract.GetName(), "height", height, "chainId", config.ChainID.String())
+		log.Info("system contract upgrade", "version", version, "name", contract.GetName(), "height", header.Number, "chainId", config.ChainID.String())
 
-		err = contract.Update(config, height, state)
+		err = contract.Update(config, header.Number, state)
 		if err != nil {
 			log.Error("Upgrade system contract update error", "version", version, "name", contract.GetName(), "err", err)
 			return

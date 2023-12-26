@@ -255,7 +255,6 @@ func (s *TxPoolAPI) Inspect() map[string]map[string]map[string]string {
 }
 
 func (s *TxPoolAPI) Inspect2() map[string][]string {
-
 	pending, queue := s.b.TxPoolContent()
 
 	now := time.Now()

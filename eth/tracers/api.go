@@ -1027,7 +1027,7 @@ func (api *API) tracePoSASysTx(ctx context.Context, sender common.Address, tx *t
 		go func() {
 			<-deadlineCtx.Done()
 			if deadlineCtx.Err() == context.DeadlineExceeded {
-				tracer.(Tracer).Stop(errors.New("execution timeout"))
+				tracer.Stop(errors.New("execution timeout"))
 			}
 		}()
 		defer cancel()
