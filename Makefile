@@ -25,7 +25,7 @@ geth:
 all:
 	$(GORUN) build/ci.go install
 
-test: all
+test:
 	$(GORUN) build/ci.go test
 
 lint: ## Run linters.
