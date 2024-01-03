@@ -129,6 +129,7 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 		rejectedTxs []*rejectedTx
 		includedTxs types.Transactions
 		gasUsed     = uint64(0)
+		blobGasUsed = uint64(0)
 		receipts    = make(types.Receipts, 0)
 		txIndex     = 0
 	)
@@ -194,6 +195,7 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 		if hashError != nil {
 			return nil, nil, NewError(ErrorMissingBlockhash, hashError)
 		}
+		blobGasUsed += txBlobGas
 		gasUsed += msgResult.UsedGas
 
 		// Receipt:
