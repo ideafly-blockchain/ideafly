@@ -4,8 +4,6 @@
 name: NDDN-ci
 
 on:
-  push:
-    branches: [ "feature/ci_test" ]
   pull_request:
     branches: [ "master" ]
 
@@ -20,6 +18,9 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '1.20'
+
+    - name: Lint
+      run: make lint
 
   Build:
     runs-on: ubuntu-latest
