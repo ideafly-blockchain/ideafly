@@ -1,0 +1,64 @@
+[Eth]
+NetworkId = 6660001
+SyncMode = "full"
+TrieTimeout = 1200000000000
+RPCGasCap = 100000000
+
+[Eth.Miner]
+GasCeil =  100000000
+Recommit = 3000000000
+Noverify = false
+
+[Eth.TxPool]
+Locals = []
+NoLocals = false
+Journal = "transactions.rlp"
+Rejournal = 3600000000000
+PriceLimit = 1000000000
+PriceBump = 10
+AccountSlots = 16
+GlobalSlots = 5120
+AccountQueue = 64
+GlobalQueue = 1024
+Lifetime = 10800000000000
+
+[Eth.GPO]
+Blocks = 20
+Percentile = 60
+MaxHeaderHistory = 1024
+MaxBlockHistory = 1024
+MaxPrice = 500000000000
+IgnorePrice = 2
+
+[Node]
+DataDir = "/root/data"
+InsecureUnlockAllowed = true
+IPCPath = "geth.ipc"
+HTTPHost = "0.0.0.0"
+HTTPPort = 8545
+HTTPCors = ["*"]
+HTTPVirtualHosts = ["*"]
+HTTPModules = ["eth", "web3", "net", "admin", "debug","personal", "miner", "debug", "npos", "engine", "rpc"]
+WSHost = ""
+WSPort = 8546
+WSModules = ["eth", "web3", "net", "admin", "debug","personal", "miner", "debug"]
+GraphQLVirtualHosts = ["localhost"]
+
+[Node.P2P]
+MaxPeers = 50
+NoDiscovery = false
+TrustedNodes = []
+ListenAddr = ":30303"
+EnableMsgEvents = false
+StaticNodes = [
+"enode://f544419e8673286ba9bd0a606b3de05bd31d153f3b96a18b33e4105b9236367f665ee098e4fee8b6becb80e09d206308ba358026dda2bb3a7a3c8470f60c3af2@172.25.0.102:30303",
+"enode://977b77ea0fbf6b82a88fd5002d4763c9f46dfebaabf6ad05b8d3114af5a49ccfe7bc5e8c3d90ef59d0d90eacc42f27ec8fb1629c6f72fd8f26465b0dfd1e4dc6@172.25.0.103:30303",
+"enode://648d20bb4d073eea51e35a364e1802abc2dcb11993f236d947897bb74f9ef56055f58d04d79db0aa2ba0e7a513e63a7735375cc131853090284294de10ababde@172.25.0.104:30303"
+]
+
+[Node.HTTPTimeouts]
+ReadTimeout = 30000000000
+ReadHeaderTimeout = 30000000000
+WriteTimeout = 30000000000
+IdleTimeout = 120000000000
+
