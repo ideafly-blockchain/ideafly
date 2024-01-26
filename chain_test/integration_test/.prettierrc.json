@@ -1,0 +1,20 @@
+{
+    "overrides": [
+        {
+            "files": "*.sol",
+            "options": {
+                "printWidth": 120
+            }
+        },
+        {
+            "files": "*.js",
+            "options": {
+                "printWidth": 120,
+                "trailingComma": "es5",
+                "bracketSpacing": true,
+                "tabWidth": 4,
+                "arrowParens": "avoid"
+            }
+        }
+    ]
+}

@@ -1,0 +1,117 @@
+version: "3"
+services:
+  nddn-miner-1:
+    hostname: nddn-miner-1
+    environment:
+      - address=0x879b32dbDac37bb91d91B9eC2f5c1b876ae9890f #derived from the private key which is passed in the args
+      - nodekeyhex=b542e60b91fde780972a807d33aca21976ab2b507999292465d13b5b73f907a1
+    build:
+      context: .
+      dockerfile: ./miner/Dockerfile
+      args:
+        privatekey: 80ad06214c1be9cc3cd941d59f4a53ce0d2b7e24fc646fb48f81d8cf5f74a6bc # Please don't do something like this in production, okay?
+        password: 123456
+    ports:
+      - 7145:8545
+    container_name: nddn-miner-1
+    networks:
+      chainnet:
+        ipv4_address: 172.25.0.102
+
+  nddn-miner-2:
+    hostname: nddn-miner-2
+    environment:
+      - address=0xa162eD4644334Fc54a52B0c0dE4022b9bd8706FD #derived from the private key which is passed in the args
+      - nodekeyhex=28255ab38f4fabb18d74a3945f0a5778d3c931b3d6a675941f0ee50badb174f8
+    build:
+      context: .
+      dockerfile: ./miner/Dockerfile
+      args:
+        privatekey: ed8da5520a704b8e417c0d3ab2511bb6eebc929d3812b90db7a4ac17132647f2 # Please don't do something like this in production, okay?
+        password: 123456
+    container_name: nddn-miner-2
+    ports:
+      - 7245:8545
+    networks:
+      chainnet:
+        ipv4_address: 172.25.0.103
+
+  nddn-miner-3:
+    hostname: nddn-miner-3
+    environment:
+      - address=0x7E89120FbFacbbf17a91E533D3b93A836082a2FF #derived from the private key which is passed in the args
+      - nodekeyhex=eebc8b680313266e650efc4ce923b31f03507d2917ae4755aaf94bd793d4f38e
+    build:
+      context: .
+      dockerfile: ./miner/Dockerfile
+      args:
+        privatekey: 421d0fae37983caee801945267d9ab514fdefe51113389a380b8e1e2de968e4c # Please don't do something like this in production, okay?
+        password: 123456
+    container_name: nddn-miner-3
+    ports:
+      - 7345:8545
+    networks:
+      chainnet:
+        ipv4_address: 172.25.0.104
+
+  nddn-miner-4:
+    hostname: nddn-miner-4
+    environment:
+      - address=0x1D342EEFD8A93b513a17e8CD9Fa9619C35aA21fA #derived from the private key which is passed in the args
+      - nodekeyhex=153278e2c6f8773d47b328c437dfb1c262d4a6e4c58d196f4ea85694daf523c9
+    build:
+      context: .
+      dockerfile: ./miner/Dockerfile
+      args:
+        privatekey: 1aa2a104115ad2e1808000c36349902e557fdfa259e2da9371ce5cc93b1753e2 # Please don't do something like this in production, okay?
+        password: 123456
+    container_name: nddn-miner-4
+    ports:
+      - 7445:8545
+    networks:
+      chainnet:
+        ipv4_address: 172.25.0.105
+
+  nddn-miner-5:
+    hostname: nddn-miner-5
+    environment:
+      - address=0x01A9015151C05b5406d57e49fdBD3440b6aB1050 #derived from the private key which is passed in the args
+      - nodekeyhex=c4eb74d8f998c5cede8ff2767569591630073b490cdb321a06108829e26a5af1
+    build:
+      context: .
+      dockerfile: ./miner/Dockerfile
+      args:
+        privatekey: 0fbcb1a73abc49a8cce055dede1d3b138e4cebfabc7d58aa90f8e2c662f2f1af # Please don't do something like this in production, okay?
+        password: 123456
+    container_name: nddn-miner-5
+    ports:
+      - 7545:8545
+    networks:
+      chainnet:
+        ipv4_address: 172.25.0.106
+
+
+  nddn-node:
+    hostname: nddn-node
+    depends_on:
+      - nddn-miner-1
+    build:
+      context: .
+      dockerfile: ./node/Dockerfile
+    container_name: nddn-node
+    ports:
+      - 8545:8545
+      - 8546:8546
+      - 19090:19090
+
+    networks:
+      chainnet:
+        ipv4_address: 172.25.0.110
+
+networks:
+  chainnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/24
+

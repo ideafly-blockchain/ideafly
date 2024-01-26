@@ -1,0 +1,29 @@
+{
+  "name": "chain-test",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "format": "prettier --write './**/*.js'",
+    "test-dao": "npx hardhat run scripts/dao-govenance-test.js",
+    "test-staking": "npx hardhat run scripts/staking-test.js --network local"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.0.0",
+    "@nomiclabs/hardhat-truffle5": "^2.0.7",
+    "@nomiclabs/hardhat-waffle": "2.0.6",
+    "@nomiclabs/hardhat-web3": "^2.0.0",
+    "chai": "^4.3.7",
+    "ethereum-waffle": "3.2.0",
+    "ethers": "^5.0.0",
+    "hardhat": "^2.19.4",
+    "hardhat-contract-sizer": "^2.9.0",
+    "hardhat-deploy": "^0.11.30",
+    "hardhat-deploy-ethers": "^0.3.0-beta.7",
+    "hardhat-gas-reporter": "^1.0.9",
+    "prettier": "^2.8.8"
+  },
+  "dependencies": {
+    "axios": "^0.21.1"
+  }
+}
