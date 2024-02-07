@@ -71,7 +71,7 @@ func (GaugeFloat64Snapshot) Update(float64) {
 // Value returns the value at the time the snapshot was taken.
 func (g GaugeFloat64Snapshot) Value() float64 { return float64(g) }
 
-// NilGauge is a no-op Gauge.
+// NilGaugeFloat64 is a no-op Gauge.
 type NilGaugeFloat64 struct{}
 
 // Snapshot is a no-op.
