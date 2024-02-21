@@ -2,10 +2,11 @@
 
 ## Prerequisites
 
-Need `docker` (with `docker compose`), and `ubuntu` images.
+Need `docker` (with `docker compose`), and `golang:1.21-bookworm` image for cross build(from non-ubuntu OS), and `ubuntu` image for running the nodes.
 
 ```bash
 docker pull ubuntu:22.04
+docker pull golang:1.21-bookworm
 ```
 
 > Notice:  
@@ -13,9 +14,7 @@ docker pull ubuntu:22.04
 > for example, it will pull a `linux/amd64` image on macOS with `intel` chip,  
 > and pull a `linux/arm64` image on macOS with `Apple M1` chip.
 
-And you should build the nddn client for `linux` target. On `intel` platform, you should build `geth-linux-amd64`, on `Apple M1` platform, you should build `geth-linux-arm64`, and then copy the binary file to file `set_up_file/geth`.
-
-Try the `build.sh` for the above operation.
+Try the `local-cross-build.sh` to build the binary for ubuntu .
 
 ## config
 
