@@ -5,7 +5,13 @@
   "scripts": {
     "format": "prettier --write './**/*.js'",
     "test-dao": "npx hardhat run scripts/dao-govenance-test.js",
-    "test-staking": "npx hardhat run scripts/staking-test.js --network local"
+    "test-staking": "npx hardhat run scripts/staking-test.js --network local",
+    "test-validator": "npx hardhat run scripts/validator.js --network local",
+    "test-pause": "npx hardhat run scripts/pause.js --network local",
+    "test-ready": "npx hardhat run scripts/ready.js --network local",
+    "test-selection": "npx hardhat run scripts/selection.js --network local",
+    "test-reward": "npx hardhat run scripts/reward.js --network local",
+    "test-jail": "npx hardhat run scripts/jail.js --network local"
   },
   "license": "ISC",
   "devDependencies": {
