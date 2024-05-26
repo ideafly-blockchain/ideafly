@@ -288,6 +288,7 @@ func doTest(cmdline []string) {
 		verbose  = flag.Bool("v", false, "Whether to log verbosely")
 		race     = flag.Bool("race", false, "Execute the race detector")
 		short    = flag.Bool("short", false, "Pass the 'short'-flag to go test")
+		count    = flag.Int("count", 1, "Number of times to run each test")
 	)
 	flag.CommandLine.Parse(cmdline)
 
