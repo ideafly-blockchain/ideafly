@@ -318,7 +318,7 @@ func doTest(cmdline []string) {
 	if *short {
 		gotest.Args = append(gotest.Args, "-short")
 	}
-	// 添加 count 标志到 gotest.Args
+	// Add count flag to gotest.Args
 	gotest.Args = append(gotest.Args, "-count", fmt.Sprintf("%d", *count))
 
 	packages := []string{"./..."}
