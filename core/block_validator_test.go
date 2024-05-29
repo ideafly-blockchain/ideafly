@@ -93,8 +93,8 @@ func testHeaderVerificationForMerging(t *testing.T) {
 		merger     = consensus.NewMerger(rawdb.NewMemoryDatabase())
 	)
 
-	gspec := &Genesis{Config: params.TestChainConfig}
-	genesis := gspec.MustCommit(testdb)
+	genspec = &Genesis{Config: params.TestChainConfig}
+	genesis := genspec.MustCommit(testdb)
 	genEngine := beacon.New(ethash.NewFaker())
 
 	preBlocks, _ = GenerateChain(params.TestChainConfig, genesis, genEngine, testdb, 8, nil)
@@ -108,8 +108,9 @@ func testHeaderVerificationForMerging(t *testing.T) {
 	postBlocks, _ = GenerateChain(params.TestChainConfig, preBlocks[len(preBlocks)-1], genEngine, testdb, 8, nil)
 
 	//chainConfig = &config
-	genspec.Config = &config
+
 	runEngine = beacon.New(ethash.NewFaker())
+	genspec.Config = &config
 
 	preHeaders := make([]*types.Header, len(preBlocks))
 	for i, block := range preBlocks {
