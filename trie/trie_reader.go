@@ -33,6 +33,8 @@ type Reader interface {
 	// identifier, hexary node path and the corresponding node hash.
 	// No error will be returned if the node is not found.
 	NodeBlob(owner common.Hash, path []byte, hash common.Hash) ([]byte, error)
+
+	GetDirtyHashCache() *HashCache
 }
 
 // NodeReader wraps all the necessary functions for accessing trie node.

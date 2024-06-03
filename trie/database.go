@@ -962,6 +962,10 @@ func (reader *hashReader) NodeBlob(_ common.Hash, _ []byte, hash common.Hash) ([
 	return blob, nil
 }
 
+func (reader *hashReader) GetDirtyHashCache() *HashCache {
+	return reader.db.GetDirtyHashCache()
+}
+
 // saveCache saves clean state cache to given directory path
 // using specified CPU cores.
 func (db *Database) saveCache(dir string, threads int) error {

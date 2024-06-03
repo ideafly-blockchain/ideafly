@@ -616,10 +616,10 @@ func (t *Trie) hashRoot() (node, node, error) {
 	}
 	// If the number of changes is below 100, we let one thread handle it
 	var h *hasher
-	if t.db == nil {
+	if t.reader == nil {
 		h = newHasher(t.unhashed >= 100)
 	} else {
-		h = newHasherWithCache(t.unhashed >= 100, t.db.GetDirtyHashCache())
+		h = newHasherWithCache(t.unhashed >= 100, t.reader.reader.GetDirtyHashCache())
 	}
 	defer returnHasherToPool(h)
 	hashed, cached := h.hash(t.root, true)

@@ -1229,9 +1229,11 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 
 	// Commit objects to the trie, measuring the elapsed time
 	var (
-		accountTrieNodes int
-		storageTrieNodes int
-		nodes            = trie.NewMergedNodeSet()
+		accountTrieNodesUpdated int
+		accountTrieNodesDeleted int
+		storageTrieNodesUpdated int
+		storageTrieNodesDeleted int
+		nodes                   = trie.NewMergedNodeSet()
 	)
 	codeWriter := s.db.DiskDB().NewBatch()
 	for addr := range s.stateObjectsDirty {
@@ -1266,7 +1268,11 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 						log.Crit("Aync merge storage trie set error", "addr", addr, "err", err)
 						return
 					}
-					storageTrieNodes += set.Len()
+
+					updates, deleted := set.Size()
+					storageTrieNodesUpdated += updates
+					storageTrieNodesDeleted += deleted
+
 				}
 			}
 		}
@@ -1289,7 +1295,7 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 				log.Crit("Aync merge trie error", "root", commitRoot, "err", err)
 				return
 			}
-			accountTrieNodes = set.Len()
+			accountTrieNodesUpdated, accountTrieNodesDeleted = set.Size()
 		}
 		if metrics.EnabledExpensive {
 			s.AccountCommits += time.Since(start)
@@ -1298,8 +1304,12 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 			storageUpdatedMeter.Mark(int64(s.StorageUpdated))
 			accountDeletedMeter.Mark(int64(s.AccountDeleted))
 			storageDeletedMeter.Mark(int64(s.StorageDeleted))
-			accountTrieCommittedMeter.Mark(int64(accountTrieNodes))
-			storageTriesCommittedMeter.Mark(int64(storageTrieNodes))
+
+			accountTrieUpdatedMeter.Mark(int64(accountTrieNodesUpdated))
+			accountTrieDeletedMeter.Mark(int64(accountTrieNodesDeleted))
+			storageTriesUpdatedMeter.Mark(int64(storageTrieNodesUpdated))
+			storageTriesDeletedMeter.Mark(int64(storageTrieNodesDeleted))
+
 			s.AccountUpdated, s.AccountDeleted = 0, 0
 			s.StorageUpdated, s.StorageDeleted = 0, 0
 		}
