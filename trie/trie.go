@@ -617,7 +617,7 @@ func (t *Trie) hashRoot() (node, node, error) {
 	}
 	// If the number of changes is below 100, we let one thread handle it
 	var h *hasher
-	if t.reader.reader == nil {
+	if t.reader == nil || t.reader.reader == nil {
 		h = newHasher(t.unhashed >= 100)
 	} else {
 		h = newHasherWithCache(t.unhashed >= 100, t.reader.reader.GetDirtyHashCache())
