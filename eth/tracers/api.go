@@ -321,8 +321,8 @@ func (api *API) traceChain(start, end *types.Block, config *TraceConfig, closed 
 			// Fetch and execute the next block trace tasks
 			for task := range taskCh {
 				var (
-					signer = types.MakeSigner(api.backend.ChainConfig(), task.block.Number())
-					header = task.block.Header()
+					signer   = types.MakeSigner(api.backend.ChainConfig(), task.block.Number())
+					header   = task.block.Header()
 					blockCtx = core.NewEVMBlockContext(header, api.chainContext(ctx), nil)
 				)
 				if api.isPoSA {

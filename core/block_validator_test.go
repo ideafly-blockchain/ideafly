@@ -94,7 +94,6 @@ func testHeaderVerificationForMerging(t *testing.T) {
 	gspec = &Genesis{Config: &config}
 	engine = beacon.New(ethash.NewFaker())
 
-
 	td := 0
 
 	genDb, blocks, _ := GenerateChainWithGenesis(gspec, engine, 8, nil)

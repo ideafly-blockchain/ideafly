@@ -565,8 +565,8 @@ func (t *Trie) resolveAndTrack(n hashNode, prefix []byte) (node, error) {
 		return nil, err
 	}
 	t.tracer.onRead(prefix, blob)
-//	return mustDecodeNode(n, blob), nil
-        return t.reader.node(prefix, common.BytesToHash(n))
+	//	return mustDecodeNode(n, blob), nil
+	return t.reader.node(prefix, common.BytesToHash(n))
 }
 
 // Hash returns the root hash of the trie. It does not write to the
