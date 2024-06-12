@@ -565,7 +565,8 @@ func (t *Trie) resolveAndTrack(n hashNode, prefix []byte) (node, error) {
 		return nil, err
 	}
 	t.tracer.onRead(prefix, blob)
-	return mustDecodeNode(n, blob), nil
+	//	return mustDecodeNode(n, blob), nil
+	return t.reader.node(prefix, common.BytesToHash(n))
 }
 
 // Hash returns the root hash of the trie. It does not write to the
@@ -616,7 +617,7 @@ func (t *Trie) hashRoot() (node, node, error) {
 	}
 	// If the number of changes is below 100, we let one thread handle it
 	var h *hasher
-	if t.reader == nil {
+	if t.reader == nil || t.reader.reader == nil {
 		h = newHasher(t.unhashed >= 100)
 	} else {
 		h = newHasherWithCache(t.unhashed >= 100, t.reader.reader.GetDirtyHashCache())

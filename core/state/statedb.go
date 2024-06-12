@@ -1272,7 +1272,6 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 					updates, deleted := set.Size()
 					storageTrieNodesUpdated += updates
 					storageTrieNodesDeleted += deleted
-
 				}
 			}
 		}

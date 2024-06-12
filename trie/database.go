@@ -312,8 +312,11 @@ func expandNode(hash hashNode, n node) node {
 func createNode(old node, compactKey bool) node {
 	switch n := old.(type) {
 	case *shortNode:
-		if compactKey {
+		if compactKey && len(n.Key) == 64 {
 			n.Key = hexToCompact(n.Key)
+		}
+		if !compactKey && len(n.Key) == 32 {
+			n.Key = compactToHex(n.Key)
 		}
 		return &shortNode{
 			Key: n.Key,
