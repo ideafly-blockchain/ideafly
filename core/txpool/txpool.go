@@ -172,7 +172,7 @@ type Config struct {
 
 	Lifetime time.Duration // Maximum amount of time non-executable transaction are queued
 
-	CongestionConfig TxCongestionConfig
+	CongestionConfig core.TxCongestionConfig
 }
 
 // DefaultConfig contains the default configurations for the transaction
@@ -191,7 +191,7 @@ var DefaultConfig = Config{
 
 	Lifetime: 3 * time.Hour,
 
-	CongestionConfig: DefaultCongestionConfig,
+	CongestionConfig: core.DefaultCongestionConfig,
 }
 
 // sanitize checks the provided user configurations and changes anything that's
@@ -274,7 +274,7 @@ type TxPool struct {
 	// during a large chain insertion, the ChainHeadEvent will not be fired in time, then some old trie-nodes
 	// will be discarded due to GC, and it will cause failure to get blacklist.
 	disableExValidate  bool
-	congestionRecorder *txCongestionRecorder // tx congestion indexer
+	congestionRecorder *core.TxCongestionRecorder // tx congestion indexer
 
 	chainHeadCh     chan core.ChainHeadEvent
 	chainHeadSub    event.Subscription
@@ -323,7 +323,7 @@ func NewTxPool(config Config, chainconfig *params.ChainConfig, chain blockChain)
 }
 
 func (pool *TxPool) Init() {
-	pool.congestionRecorder = newTxCongestionRecorder(pool.config.CongestionConfig, pool)
+	pool.congestionRecorder = core.NewTxCongestionRecorder(pool.config.CongestionConfig, pool)
 	pool.locals = newAccountSet(pool.signer)
 	for _, addr := range pool.config.Locals {
 		log.Info("Setting new local account", "address", addr)
@@ -789,7 +789,7 @@ func (pool *TxPool) handleUnderpriced(tx *types.Transaction, isLocal bool) (repl
 	return false, nil
 }
 
-func (pool *TxPool) replacePending(list *txList, from common.Address, tx *types.Transaction, isLocal bool) (replaced bool, err error) {
+func (pool *TxPool) replacePending(list *list, from common.Address, tx *types.Transaction, isLocal bool) (replaced bool, err error) {
 	// Nonce already pending, check if required price bump is met
 	inserted, old := list.Add(tx, pool.config.PriceBump)
 	if !inserted {
