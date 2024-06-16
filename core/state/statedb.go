@@ -1263,7 +1263,7 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 		for addr := range s.stateObjectsDirty {
 			if obj := s.stateObjects[addr]; !obj.deleted {
 				// Write any storage changes in the state object to its storage trie
-				set, err := obj.CommitTrie(s.db)
+				set, err := obj.commitTrie(s.db)
 				if err != nil {
 					log.Crit("Aync commit storage trie error", "addr", addr, "err", err)
 					return
