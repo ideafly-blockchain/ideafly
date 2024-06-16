@@ -2014,6 +2014,7 @@ func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
 	if _, err := chain.InsertChain(canonblocks[tt.commitBlock:]); err != nil {
 		t.Fatalf("Failed to import canonical chain tail: %v", err)
 	}
+	defer chain.stateCache.TrieDB().FlushLatch.Done()
 	chain.stateCache.TrieDB().FlushHashCache()
 	// Manually dereference anything not committed to not have to work with 128+ tries
 	for _, block := range sideblocks {
