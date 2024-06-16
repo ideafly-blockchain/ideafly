@@ -1,7 +1,6 @@
-package core
+package txpool
 
 import (
-	"github.com/ethereum/go-ethereum/core/txpool"
 	"math/big"
 	"sort"
 	"sync"
@@ -63,7 +62,7 @@ func (c *TxCongestionConfig) sanity() TxCongestionConfig {
 // TxCongestionRecorder try to give a quantitative index to reflects the tx congestion.
 type TxCongestionRecorder struct {
 	cfg  TxCongestionConfig
-	pool *txpool.TxPool
+	pool *TxPool
 	head *types.Header
 
 	underPricedCounter *underPricedCounter
@@ -75,7 +74,7 @@ type TxCongestionRecorder struct {
 	chainHeadCh chan *types.Header
 }
 
-func NewTxCongestionRecorder(cfg TxCongestionConfig, pool *txpool.TxPool) *TxCongestionRecorder {
+func NewTxCongestionRecorder(cfg TxCongestionConfig, pool *TxPool) *TxCongestionRecorder {
 	cfg = (&cfg).sanity()
 
 	recorder := &TxCongestionRecorder{
