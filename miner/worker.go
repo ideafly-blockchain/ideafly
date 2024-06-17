@@ -1127,7 +1127,7 @@ func (w *worker) generateWork(params *generateParams) (*types.Block, *big.Int, e
 		}
 	}
 
-	block,_,err := w.engine.FinalizeAndAssemble(w.chain, work.header, work.state, work.txs, work.unclelist(), work.receipts)
+	block, _, err := w.engine.FinalizeAndAssemble(w.chain, work.header, work.state, work.txs, work.unclelist(), work.receipts)
 	if err != nil {
 		return nil, nil, err
 	}
