@@ -132,14 +132,14 @@ func ecrecover(header *types.Header, sigcache *sigLRU) (common.Address, error) {
 // TestEngine is the proof-of-authority consensus engine proposed to support the
 // Ethereum testnet following the Ropsten attacks.
 type TestEngine struct {
-	config     *params.CliqueConfig    // Consensus engine configuration parameters
-	db         ethdb.Database          // Database to store and retrieve snapshot checkpoints
-	recents    *lru.Cache[common.Hash, *Snapshot]           // Snapshots for recent block to speed up reorgs
-	signatures *sigLRU                                      // Signatures of recent blocks to speed up mining
-	proposals  map[common.Address]bool // Current list of proposals we are pushing
-	signer     common.Address          // Ethereum address of the signing key
-	signFn     SignerFn                // Signer function to authorize hashes with
-	lock       sync.RWMutex            // Protects the signer and proposals fields
+	config     *params.CliqueConfig               // Consensus engine configuration parameters
+	db         ethdb.Database                     // Database to store and retrieve snapshot checkpoints
+	recents    *lru.Cache[common.Hash, *Snapshot] // Snapshots for recent block to speed up reorgs
+	signatures *sigLRU                            // Signatures of recent blocks to speed up mining
+	proposals  map[common.Address]bool            // Current list of proposals we are pushing
+	signer     common.Address                     // Ethereum address of the signing key
+	signFn     SignerFn                           // Signer function to authorize hashes with
+	lock       sync.RWMutex                       // Protects the signer and proposals fields
 	// The fields below are for testing only
 	fakeDiff bool // Skip difficulty verifications
 }
@@ -701,10 +701,12 @@ type Tally struct {
 	Votes     int  `json:"votes"`     // Number of votes until now wanting to pass the proposal
 }
 
+type sigLRU = lru.Cache[common.Hash, common.Address]
+
 // Snapshot is the state of the authorization voting at a given point in time.
 type Snapshot struct {
 	config   *params.CliqueConfig        // Consensus engine parameters to fine tune behavior
-	sigcache *lru.ARCCache               // Cache of recent block signatures to speed up ecrecover
+	sigcache *sigLRU                     // Cache of recent block signatures to speed up ecrecover
 	Number   uint64                      `json:"number"`  // Block number where the snapshot was created
 	Hash     common.Hash                 `json:"hash"`    // Block hash where the snapshot was created
 	Signers  map[common.Address]struct{} `json:"signers"` // Set of authorized signers at this moment
@@ -723,7 +725,7 @@ func (s signersAscending) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 // newSnapshot creates a new snapshot with the specified startup parameters. This
 // method does not initialize the set of recent signers, so only ever use if for
 // the genesis block.
-func newSnapshot(config *params.CliqueConfig, sigcache *lru.ARCCache, number uint64, hash common.Hash, signers []common.Address) *Snapshot {
+func newSnapshot(config *params.CliqueConfig, sigcache *sigLRU, number uint64, hash common.Hash, signers []common.Address) *Snapshot {
 	snap := &Snapshot{
 		config:   config,
 		sigcache: sigcache,
@@ -740,7 +742,7 @@ func newSnapshot(config *params.CliqueConfig, sigcache *lru.ARCCache, number uin
 }
 
 // loadSnapshot loads an existing snapshot from the database.
-func loadSnapshot(config *params.CliqueConfig, sigcache *lru.ARCCache, db ethdb.Database, hash common.Hash) (*Snapshot, error) {
+func loadSnapshot(config *params.CliqueConfig, sigcache *sigLRU, db ethdb.Database, hash common.Hash) (*Snapshot, error) {
 	blob, err := db.Get(append([]byte("clique-"), hash[:]...))
 	if err != nil {
 		return nil, err
