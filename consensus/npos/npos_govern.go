@@ -183,7 +183,7 @@ func (c *Npos) executeProposalMsg(ctx *systemcontract.CallContext, prop *Proposa
 // the returned value should not nil.
 func (c *Npos) executeEvmCallProposal(ctx *systemcontract.CallContext, prop *Proposal, totalTxIndex int, txHash, bHash common.Hash) *types.Receipt {
 	// actually call evm with proposal infos
-	ctx.Statedb.Prepare(txHash, totalTxIndex)
+	ctx.Statedb.SetTxContext(txHash, totalTxIndex)
 	_, err := systemcontract.VmCallWithValue(ctx, prop.From, prop.To, prop.Data, prop.Value)
 	// governance message will not actually consumes gas
 	receipt := types.NewReceipt([]byte{}, err != nil, ctx.Header.GasUsed)
@@ -232,7 +232,7 @@ func (c *Npos) ApplySysTx(evm *vm.EVM, state *state.StateDB, txIndex int, sender
 	case 0:
 		// evm action.
 		// actually run the governance message
-		state.Prepare(tx.Hash(), txIndex)
+		state.SetTxContext(tx.Hash(), txIndex)
 		evm.TxContext = vm.TxContext{
 			Origin:   prop.From,
 			GasPrice: new(big.Int),
