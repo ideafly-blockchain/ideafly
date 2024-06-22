@@ -20,6 +20,7 @@ package eth
 import (
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/trie"
 	"math/big"
 	"runtime"
 	"strings"
@@ -145,7 +146,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		overrides.OverrideTerminalTotalDifficultyPassed = config.OverrideTerminalTotalDifficultyPassed
 	}
 
-	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlockWithOverride(chainDb, config.Genesis, &overrides)
+	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlockWithOverride(chainDb, trie.NewDatabase(chainDb), config.Genesis, &overrides)
 	if _, ok := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !ok {
 		return nil, genesisErr
 	}

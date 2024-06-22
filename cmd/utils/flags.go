@@ -23,6 +23,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/trie"
 	"math"
 	"math/big"
 	"net/http"
@@ -2264,7 +2265,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node, readonly bool) (*core.BlockCh
 		chainDb = MakeChainDatabase(ctx, stack, readonly)
 	)
 
-	config, _, err := core.SetupGenesisBlock(chainDb, MakeGenesis(ctx))
+	config, _, err := core.SetupGenesisBlock(chainDb, trie.NewDatabase(chainDb), MakeGenesis(ctx))
 	if err != nil {
 		Fatalf("%v", err)
 	}
