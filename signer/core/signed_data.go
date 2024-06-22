@@ -131,6 +131,13 @@ func (api *SignerAPI) determineSignatureFormat(ctx context.Context, contentType 
 			},
 		}
 		req = &SignDataRequest{ContentType: mediaType, Rawdata: []byte(msg), Messages: messages, Hash: sighash}
+	case apitypes.DataTyped.Mime:
+		// EIP-712 conformant typed data
+		var err error
+		req, err = typedDataRequest(data)
+		if err != nil {
+			return nil, useEthereumV, err
+		}
 	default: // also case TextPlain.Mime:
 		// Calculates an Ethereum ECDSA signature for:
 		// hash = keccak256("\x19Ethereum Signed Message:\n${message length}${message}")
