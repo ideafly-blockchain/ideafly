@@ -1336,7 +1336,6 @@ func (bc *BlockChain) writeBlockWithState(block *types.Block, receipts []*types.
 		current := block.NumberU64()
 		// Flush limits are not considered for the first TriesInMemory blocks.
 		if current > TriesInMemory {
-
 			// If we exceeded our memory allowance, flush matured singleton nodes to disk
 			var (
 				nodes, imgs = bc.triedb.Size()

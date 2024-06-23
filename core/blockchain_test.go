@@ -3850,6 +3850,7 @@ func TestTxIndexer(t *testing.T) {
 		tail := rawdb.ReadTxIndexTail(db)
 		if tail == nil {
 			t.Fatal("Failed to write tx index tail")
+			return
 		}
 		if *tail != expTail {
 			t.Fatalf("Unexpected tx index tail, want %v, got %d", expTail, *tail)
