@@ -645,7 +645,7 @@ func (api *API) traceBlock(ctx context.Context, block *types.Block, config *Trac
 		results = make([]*txTraceResult, len(txs))
 
 		header = block.Header()
-		pend    sync.WaitGroup
+		pend   sync.WaitGroup
 	)
 	threads := runtime.NumCPU()
 	if threads > len(txs) {
@@ -656,7 +656,7 @@ func (api *API) traceBlock(ctx context.Context, block *types.Block, config *Trac
 		_ = api.posa.PreHandle(api.backend.ChainHeaderReader(), header, statedb)
 		exValidator = api.posa.CreateEvmExtraValidator(header, statedb)
 	}
-	jobs = make(chan *txTraceTask, threads)
+	jobs := make(chan *txTraceTask, threads)
 	blockHash := block.Hash()
 	for th := 0; th < threads; th++ {
 		pend.Add(1)
