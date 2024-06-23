@@ -188,7 +188,7 @@ func (c *Npos) executeEvmCallProposal(ctx *systemcontract.CallContext, prop *Pro
 	// governance message will not actually consumes gas
 	receipt := types.NewReceipt([]byte{}, err != nil, ctx.Header.GasUsed)
 	// Set the receipt logs and create a bloom for filtering
-	receipt.Logs = ctx.Statedb.GetLogs(txHash, bHash)
+	receipt.Logs = ctx.Statedb.GetLogs(txHash, ctx.Header.Number.Uint64(), bHash)
 	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
 
 	log.Info("executeProposalMsg", "action", "evmCall", "id", prop.Id.String(), "from", prop.From, "to", prop.To, "value", prop.Value.String(), "data", hexutil.Encode(prop.Data), "txHash", txHash.String(), "err", err)
