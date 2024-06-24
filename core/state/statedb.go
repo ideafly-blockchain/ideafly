@@ -1279,7 +1279,7 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 			}
 			// Only update if there's a state transition (skip empty Clique blocks)
 			if parent := s.snap.Root(); parent != root {
-				if err := s.snaps.Update(root, parent, s.snapDestructs, s.snapAccounts, s.snapStorage); err != nil {
+				if err := s.snaps.Update(root, parent, s.convertAccountSet(s.stateObjectsDestruct), s.snapAccounts, s.snapStorage); err != nil {
 					log.Warn("Failed to update snapshot tree", "from", parent, "to", root, "err", err)
 				}
 				// Keep 128 diff layers in the memory, persistent layer is 129th.
@@ -1290,7 +1290,10 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 					log.Warn("Failed to cap snapshot tree", "root", root, "layers", 128, "err", err)
 				}
 			}
-			s.snap, s.snapDestructs, s.snapAccounts, s.snapStorage = nil, nil, nil, nil
+			s.snap, s.snapAccounts, s.snapStorage = nil, nil, nil
+			if len(s.stateObjectsDestruct) > 0 {
+				s.stateObjectsDestruct = make(map[common.Address]struct{})
+			}
 		}()
 	}
 
