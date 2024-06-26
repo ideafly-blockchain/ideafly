@@ -1004,6 +1004,7 @@ func TestErase(t *testing.T) {
 	obj = state.getStateObject(addr)
 	if obj == nil {
 		t.Fatal("erase should not delete the account")
+		return
 	}
 	if code := obj.Code(state.db); len(code) > 0 {
 		t.Fatal("erase failed to clear the code")
@@ -1013,6 +1014,7 @@ func TestErase(t *testing.T) {
 	}
 	if obj.data.Root != emptyRoot {
 		t.Fatal("erase not clear the storage")
+		return
 	}
 	if !bytes.Equal(obj.CodeHash(), emptyCodeHash) {
 		t.Fatal("erase failed to clear the code hash")
