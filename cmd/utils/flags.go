@@ -2261,7 +2261,7 @@ func MakeChain(ctx *cli.Context, stack *node.Node, readonly bool) (*core.BlockCh
 		chainDb = MakeChainDatabase(ctx, stack, readonly)
 	)
 
-	config, _, err := core.SetupGenesisBlock(chainDb, trie.NewDatabase(chainDb), MakeGenesis(ctx))
+	config, _, err := core.SetupGenesisBlock(chainDb, trie.NewDatabase(chainDb), gspec)
 	if err != nil {
 		Fatalf("%v", err)
 	}
