@@ -292,6 +292,7 @@ var (
 		TerminalTotalDifficultyPassed: false,
 		Ethash:                        new(EthashConfig),
 		Clique:                        nil,
+		Npos:                          nil,
 	}
 
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
@@ -322,6 +323,7 @@ var (
 		TerminalTotalDifficultyPassed: false,
 		Ethash:                        nil,
 		Clique:                        &CliqueConfig{Period: 0, Epoch: 30000},
+		Npos:                          nil,
 	}
 
 	// TestChainConfig contains every protocol change (EIPs) introduced
@@ -352,6 +354,7 @@ var (
 		TerminalTotalDifficultyPassed: false,
 		Ethash:                        new(EthashConfig),
 		Clique:                        nil,
+		Npos:                          nil,
 	}
 
 	// NonActivatedConfig defines the chain configuration without activating
@@ -382,6 +385,7 @@ var (
 		TerminalTotalDifficultyPassed: false,
 		Ethash:                        new(EthashConfig),
 		Clique:                        nil,
+		Npos:                          nil,
 	}
 	TestRules = TestChainConfig.Rules(new(big.Int), false, new(big.Int))
 )
