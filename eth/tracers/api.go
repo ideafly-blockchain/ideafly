@@ -689,7 +689,7 @@ func (api *API) traceBlockParallel(ctx context.Context, block *types.Block, stat
 		results   = make([]*txTraceResult, len(txs))
 
 		header = block.Header()
-		pend      sync.WaitGroup
+		pend   sync.WaitGroup
 	)
 	threads := runtime.NumCPU()
 	if threads > len(txs) {
@@ -1096,7 +1096,7 @@ func (api *API) tracePoSASysTx(ctx context.Context, sender common.Address, tx *t
 			}
 		}
 		// Constuct the JavaScript tracer to execute with
-		if tracer, err = New(*config.Tracer, txctx, config.TracerConfig); err != nil {
+		if tracer, err = DefaultDirectory.New(*config.Tracer, txctx, config.TracerConfig); err != nil {
 			return nil, err
 		}
 		// Handle timeouts and RPC cancellations
