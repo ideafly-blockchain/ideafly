@@ -1356,11 +1356,8 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 		if metrics.EnabledExpensive {
 			start = time.Now()
 		}
-		commitRoot, set, err := s.trie.Commit(true)
-		if err != nil {
-			log.Crit("Aync commit trie error", "err", err)
-			return
-		}
+		commitRoot, set := s.trie.Commit(true)
+
 		// Merge the dirty nodes of account trie into global set
 		if set != nil {
 			if err := nodes.Merge(set); err != nil {
