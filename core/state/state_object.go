@@ -368,7 +368,7 @@ func (s *stateObject) commitTrie(db Database) (*trie.NodeSet, error) {
 	}
 	root, nodes := s.trie.Commit(false)
 
-		s.data.Root = root
+	s.data.Root = root
 
 	return nodes, nil
 }
