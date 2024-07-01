@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/txpool"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/eth/gasprice"
 	"github.com/ethereum/go-ethereum/miner"
@@ -51,7 +53,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		FilterLogCacheSize                    int
 		Miner                                 miner.Config
 		Ethash                                ethash.Config
-		TxPool                                core.TxPoolConfig
+		TxPool                                txpool.Config
 		GPO                                   gasprice.Config
 		EnablePreimageRecording               bool
 		DocRoot                               string `toml:"-"`
@@ -64,6 +66,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 		OverrideTerminalTotalDifficultyPassed *bool                          `toml:",omitempty"`
 		InternalTxTraceDisabled               bool                           `toml:",omitempty"`
 		InternalTxTraceAll                    bool                           `toml:",omitempty"`
+		FullSyncTarget                        *types.Block
 	}
 	var enc Config
 	enc.Genesis = c.Genesis
@@ -112,6 +115,7 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.OverrideTerminalTotalDifficultyPassed = c.OverrideTerminalTotalDifficultyPassed
 	enc.InternalTxTraceDisabled = c.InternalTxTraceDisabled
 	enc.InternalTxTraceAll = c.InternalTxTraceAll
+	enc.FullSyncTarget = c.SyncTarget
 	return &enc, nil
 }
 
@@ -151,7 +155,7 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		FilterLogCacheSize                    *int
 		Miner                                 *miner.Config
 		Ethash                                *ethash.Config
-		TxPool                                *core.TxPoolConfig
+		TxPool                                *txpool.Config
 		GPO                                   *gasprice.Config
 		EnablePreimageRecording               *bool
 		DocRoot                               *string `toml:"-"`
@@ -164,6 +168,7 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 		OverrideTerminalTotalDifficultyPassed *bool                          `toml:",omitempty"`
 		InternalTxTraceDisabled               *bool                          `toml:",omitempty"`
 		InternalTxTraceAll                    *bool                          `toml:",omitempty"`
+		FullSyncTarget                        *types.Block
 	}
 	var dec Config
 	if err := unmarshal(&dec); err != nil {
@@ -306,6 +311,9 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	}
 	if dec.InternalTxTraceAll != nil {
 		c.InternalTxTraceAll = *dec.InternalTxTraceAll
+	}
+	if dec.FullSyncTarget != nil {
+		c.SyncTarget = dec.FullSyncTarget
 	}
 	return nil
 }

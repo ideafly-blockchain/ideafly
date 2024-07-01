@@ -756,7 +756,7 @@ func (s *StateDB) Copy() *StateDB {
 		// nil
 		if object, exist := s.stateObjects[addr]; exist {
 			// Even though the original object is dirty, we are not copying the journal,
-			// so we need to make sure that anyside effect the journal would have caused
+			// so we need to make sure that any side-effect the journal would have caused
 			// during a commit (or similar op) is already applied to the copy.
 			state.stateObjects[addr] = object.deepCopy(state)
 
@@ -885,8 +885,8 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 			// resurrect an account; but the snapshotter needs both events.
 			if s.snap != nil {
 				s.snapDestructs[obj.addrHash] = struct{}{} // We need to maintain account deletions explicitly (will remain set indefinitely)
-				delete(s.snapAccounts, obj.addrHash)       // Clear out any previously updated account data (may be recreated via a ressurrect)
-				delete(s.snapStorage, obj.addrHash)        // Clear out any previously updated storage data (may be recreated via a ressurrect)
+				delete(s.snapAccounts, obj.addrHash)       // Clear out any previously updated account data (may be recreated via a resurrect)
+				delete(s.snapStorage, obj.addrHash)        // Clear out any previously updated storage data (may be recreated via a resurrect)
 			}
 		} else {
 			obj.finalise(true) // Prefetch slots in the background
@@ -1035,7 +1035,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 				obj.dirtyCode = false
 			}
 			// Write any storage changes in the state object to its storage trie
-			set, err := obj.CommitTrie(s.db)
+			set, err := obj.commitTrie(s.db)
 			if err != nil {
 				return common.Hash{}, err
 			}
@@ -1049,6 +1049,12 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 				storageTrieNodesDeleted += deleted
 			}
 		}
+		// If the contract is destructed, the storage is still left in the
+		// database as dangling data. Theoretically it's should be wiped from
+		// database as well, but in hash-based-scheme it's extremely hard to
+		// determine that if the trie nodes are also referenced by other storage,
+		// and in path-based-scheme some technical challenges are still unsolved.
+		// Although it won't affect the correctness but please fix it TODO(rjl493456442).
 	}
 	if len(s.stateObjectsDirty) > 0 {
 		s.stateObjectsDirty = make(map[common.Address]struct{})
@@ -1257,7 +1263,7 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 		for addr := range s.stateObjectsDirty {
 			if obj := s.stateObjects[addr]; !obj.deleted {
 				// Write any storage changes in the state object to its storage trie
-				set, err := obj.CommitTrie(s.db)
+				set, err := obj.commitTrie(s.db)
 				if err != nil {
 					log.Crit("Aync commit storage trie error", "addr", addr, "err", err)
 					return

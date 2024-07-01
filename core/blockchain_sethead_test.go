@@ -1984,6 +1984,8 @@ func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
 	if err != nil {
 		t.Fatalf("Failed to create chain: %v", err)
 	}
+	defer chain.Stop()
+
 	// If sidechain blocks are needed, make a light chain and import it
 	var sideblocks types.Blocks
 	if tt.sidechainBlocks > 0 {
@@ -2012,6 +2014,7 @@ func testSetHead(t *testing.T, tt *rewindTest, snapshots bool) {
 	if _, err := chain.InsertChain(canonblocks[tt.commitBlock:]); err != nil {
 		t.Fatalf("Failed to import canonical chain tail: %v", err)
 	}
+	defer chain.stateCache.TrieDB().FlushLatch.Done()
 	chain.stateCache.TrieDB().FlushHashCache()
 	// Manually dereference anything not committed to not have to work with 128+ tries
 	for _, block := range sideblocks {

@@ -1,4 +1,4 @@
-package core
+package txpool
 
 import (
 	"math/big"
@@ -59,8 +59,8 @@ func (c *TxCongestionConfig) sanity() TxCongestionConfig {
 	return cfg
 }
 
-// txCongestionRecorder try to give a quantitative index to reflects the tx congestion.
-type txCongestionRecorder struct {
+// TxCongestionRecorder try to give a quantitative index to reflects the tx congestion.
+type TxCongestionRecorder struct {
 	cfg  TxCongestionConfig
 	pool *TxPool
 	head *types.Header
@@ -74,10 +74,10 @@ type txCongestionRecorder struct {
 	chainHeadCh chan *types.Header
 }
 
-func newTxCongestionRecorder(cfg TxCongestionConfig, pool *TxPool) *txCongestionRecorder {
+func NewTxCongestionRecorder(cfg TxCongestionConfig, pool *TxPool) *TxCongestionRecorder {
 	cfg = (&cfg).sanity()
 
-	recorder := &txCongestionRecorder{
+	recorder := &TxCongestionRecorder{
 		cfg:                cfg,
 		pool:               pool,
 		underPricedCounter: newUnderPricedCounter(cfg.PeriodsSecs),
@@ -91,19 +91,19 @@ func newTxCongestionRecorder(cfg TxCongestionConfig, pool *TxPool) *txCongestion
 }
 
 // Stop stops the loop goroutines of this congestion index
-func (recorder *txCongestionRecorder) Stop() {
+func (recorder *TxCongestionRecorder) Stop() {
 	recorder.underPricedCounter.Stop()
 	close(recorder.quit)
 }
 
 // CongestionRecord returns the current congestion record
-func (recorder *txCongestionRecorder) CongestionRecord() int {
+func (recorder *TxCongestionRecorder) CongestionRecord() int {
 	recorder.congestionLock.RLock()
 	defer recorder.congestionLock.RUnlock()
 	return recorder.currentCongestion
 }
 
-func (recorder *txCongestionRecorder) updateLoop() {
+func (recorder *TxCongestionRecorder) updateLoop() {
 	tick := time.NewTicker(time.Second * time.Duration(recorder.cfg.PeriodsSecs))
 	defer tick.Stop()
 
@@ -181,11 +181,11 @@ func (recorder *txCongestionRecorder) updateLoop() {
 	}
 }
 
-func (recorder *txCongestionRecorder) UpdateHeader(h *types.Header) {
+func (recorder *TxCongestionRecorder) UpdateHeader(h *types.Header) {
 	recorder.chainHeadCh <- h
 }
 
-func (recorder *txCongestionRecorder) UnderPricedInc() {
+func (recorder *TxCongestionRecorder) UnderPricedInc() {
 	recorder.underPricedCounter.Inc()
 }
 
