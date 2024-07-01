@@ -1291,13 +1291,12 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 
 	// Commit objects to the trie, measuring the elapsed time
 	var (
-		accountTrieNodesUpdated int
-		accountTrieNodesDeleted int
-		storageTrieNodesUpdated int
-		storageTrieNodesDeleted int
-		nodes                   = trie.NewMergedNodeSet()
+		accountTrieNodes int
+		storageTrieNodes int
+		nodes            = trie.NewMergedNodeSet()
+		codeWriter       = s.db.DiskDB().NewBatch()
 	)
-	codeWriter := s.db.DiskDB().NewBatch()
+
 	for addr := range s.stateObjectsDirty {
 		if obj := s.stateObjects[addr]; !obj.deleted {
 			// Write any contract code associated with the state object
@@ -1330,10 +1329,7 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 						log.Crit("Aync merge storage trie set error", "addr", addr, "err", err)
 						return
 					}
-
-					updates, deleted := set.Size()
-					storageTrieNodesUpdated += updates
-					storageTrieNodesDeleted += deleted
+					storageTrieNodes += set.Size()
 				}
 			}
 		}
@@ -1353,7 +1349,7 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 				log.Crit("Aync merge trie error", "root", commitRoot, "err", err)
 				return
 			}
-			accountTrieNodesUpdated, accountTrieNodesDeleted = set.Size()
+			accountTrieNodes = set.Size()
 		}
 		if metrics.EnabledExpensive {
 			s.AccountCommits += time.Since(start)
@@ -1363,10 +1359,8 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 			accountDeletedMeter.Mark(int64(s.AccountDeleted))
 			storageDeletedMeter.Mark(int64(s.StorageDeleted))
 
-			accountTrieUpdatedMeter.Mark(int64(accountTrieNodesUpdated))
-			accountTrieDeletedMeter.Mark(int64(accountTrieNodesDeleted))
-			storageTriesUpdatedMeter.Mark(int64(storageTrieNodesUpdated))
-			storageTriesDeletedMeter.Mark(int64(storageTrieNodesDeleted))
+			accountTrieNodesMeter.Mark(int64(accountTrieNodes))
+			storageTriesNodesMeter.Mark(int64(storageTrieNodes))
 
 			s.AccountUpdated, s.AccountDeleted = 0, 0
 			s.StorageUpdated, s.StorageDeleted = 0, 0
