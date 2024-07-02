@@ -606,10 +606,10 @@ func (s *StateDB) PrefetchStateObjects(block *types.Block, signer types.Signer) 
 					Root:     common.BytesToHash(account.Root),
 				}
 				if len(data.CodeHash) == 0 {
-					data.CodeHash = emptyCodeHash
+					data.CodeHash = types.EmptyCodeHash.Bytes()
 				}
 				if data.Root == (common.Hash{}) {
-					data.Root = emptyRoot
+					data.Root = types.EmptyRootHash
 				}
 				objsChan <- newObject(s, addr, *data)
 			} else {

@@ -366,7 +366,7 @@ func (s *stateObject) commitTrie(db Database) (*trie.NodeSet, error) {
 	}
 	root, nodes := s.trie.Commit(false)
 
-		s.data.Root = root
+	s.data.Root = root
 
 	return nodes, nil
 }
@@ -520,8 +520,8 @@ func (s *stateObject) erase() {
 	})
 
 	s.code = []byte{}
-	s.data.CodeHash = emptyCodeHash
-	s.data.Root = emptyRoot
+	s.data.CodeHash = types.EmptyCodeHash.Bytes()
+	s.data.Root = types.EmptyRootHash
 	s.trie = nil
 	s.dirtyCode = true
 }
