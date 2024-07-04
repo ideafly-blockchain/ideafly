@@ -358,7 +358,7 @@ func (pool *TxPool) Init() {
 
 // InitExTxValidator sets the extra validator
 func (pool *TxPool) InitExTxValidator(v exTxValidator) {
-	pool.makeFakeHeader(pool.chain.CurrentBlock().Header())
+	pool.makeFakeHeader(pool.chain.CurrentBlock())
 	pool.txValidator = v
 }
 
