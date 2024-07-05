@@ -325,10 +325,10 @@ func (api *API) traceChain(start, end *types.Block, config *TraceConfig, closed 
 						isSysTx bool
 					)
 					if api.isPoSA {
-						isSysTx, _ = api.posa.IsSysTransaction(msg.From(), tx, header)
+						isSysTx, _ = api.posa.IsSysTransaction(msg.From, tx, header)
 					}
 					if isSysTx {
-						res, err = api.tracePoSASysTx(ctx, msg.From(), tx, txctx, blockCtx, task.statedb, config)
+						res, err = api.tracePoSASysTx(ctx, msg.From, tx, txctx, blockCtx, task.statedb, config)
 					} else {
 						res, err = api.traceTx(ctx, msg, txctx, blockCtx, task.statedb, config)
 					}
@@ -723,7 +723,7 @@ func (api *API) traceBlockParallel(ctx context.Context, block *types.Block, stat
 				var err error
 				if task.isSysTx {
 					tx := txs[task.index]
-					res, err = api.tracePoSASysTx(ctx, msg.From(), tx, txctx, blockCtx, task.statedb, config)
+					res, err = api.tracePoSASysTx(ctx, msg.From, tx, txctx, blockCtx, task.statedb, config)
 				} else {
 					res, err = api.traceTx(ctx, msg, txctx, blockCtx, task.statedb, config)
 				}
@@ -758,7 +758,7 @@ txloop:
 		msg, _ := core.TransactionToMessage(tx, signer, block.BaseFee())
 		vmenv := vm.NewEVM(blockCtx, core.NewEVMTxContext(msg), statedb, api.backend.ChainConfig(), vm.Config{})
 		if isSysTx {
-			if _, _, err := api.posa.ApplySysTx(vmenv, statedb, i, msg.From(), tx); err != nil {
+			if _, _, err := api.posa.ApplySysTx(vmenv, statedb, i, msg.From, tx); err != nil {
 				failed = err
 				break
 			}
@@ -881,10 +881,10 @@ func (api *API) standardTraceBlockToFile(ctx context.Context, block *types.Block
 		vmenv := vm.NewEVM(vmctx, txContext, statedb, chainConfig, vmConf)
 		var isSysTx bool
 		if api.isPoSA {
-			isSysTx, _ = api.posa.IsSysTransaction(msg.From(), tx, header)
+			isSysTx, _ = api.posa.IsSysTransaction(msg.From, tx, header)
 		}
 		if isSysTx {
-			_, _, err = api.posa.ApplySysTx(vmenv, statedb, i, msg.From(), tx)
+			_, _, err = api.posa.ApplySysTx(vmenv, statedb, i, msg.From, tx)
 		} else {
 			statedb.SetTxContext(tx.Hash(), i)
 			_, err = core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.GasLimit))
@@ -955,9 +955,9 @@ func (api *API) TraceTransaction(ctx context.Context, hash common.Hash, config *
 	}
 	if api.isPoSA {
 		tx := block.Transactions()[int(index)]
-		ok, _ := api.posa.IsSysTransaction(msg.From(), tx, block.Header())
+		ok, _ := api.posa.IsSysTransaction(msg.From, tx, block.Header())
 		if ok {
-			return api.tracePoSASysTx(ctx, msg.From(), tx, txctx, vmctx, statedb, config)
+			return api.tracePoSASysTx(ctx, msg.From, tx, txctx, vmctx, statedb, config)
 		}
 	}
 	return api.traceTx(ctx, msg, txctx, vmctx, statedb, config)

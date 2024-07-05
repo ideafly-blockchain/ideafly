@@ -394,7 +394,7 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		// the coinbase when simulating calls.
 	} else if st.evm.ChainConfig().Npos != nil {
 		fee := new(big.Int).SetUint64(st.gasUsed())
-		fee.Mul(fee, st.gasPrice)
+		fee.Mul(fee, st.msg.GasPrice)
 		st.state.AddBalance(consensus.FeeRecoder, fee)
 	} else {
 		fee := new(big.Int).SetUint64(st.gasUsed())
