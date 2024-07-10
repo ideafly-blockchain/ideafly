@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"sync/atomic"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -58,7 +57,7 @@ func (t *ActionLogger) CaptureStart(env *EVM, from common.Address, to common.Add
 }
 
 // CaptureEnd is called after the call finishes to finalize the tracing.
-func (t *ActionLogger) CaptureEnd(output []byte, gasUsed uint64, _ time.Duration, err error) {
+func (t *ActionLogger) CaptureEnd(output []byte, gasUsed uint64, err error) {
 	t.callstack[0].GasUsed = gasUsed
 	if err != nil {
 		t.callstack[0].Error = err.Error()

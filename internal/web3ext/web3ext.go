@@ -539,6 +539,11 @@ web3._extend({
 			call: 'debug_dbAncients',
 			params: 0
 		}),
+		new web3._extend.Method({
+			name: 'setTrieFlushInterval',
+			call: 'debug_setTrieFlushInterval',
+			params: 1
+		}),
 	],
 	properties: []
 });
@@ -663,6 +668,12 @@ web3._extend({
 			name: 'getInternalTxsByTxHash',
 			call: 'eth_getInternalTxsByTxHash',
 			params: 2,
+		}),
+		new web3._extend.Method({
+			name: 'call',
+			call: 'eth_call',
+			params: 3,
+			inputFormatter: [web3._extend.formatters.inputCallFormatter, web3._extend.formatters.inputDefaultBlockNumberFormatter, null],
 		}),
 	],
 	properties: [
