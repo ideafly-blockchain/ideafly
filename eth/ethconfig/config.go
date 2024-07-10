@@ -18,7 +18,6 @@
 package ethconfig
 
 import (
-	"math/big"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -212,7 +211,7 @@ type Config struct {
 	// Trace and save all internal txs action, with input and output data. By default the node will only trace and save those with value greater then 0.
 	InternalTxTraceAll bool `toml:",omitempty"`
 	// OverrideShanghai (TODO: remove after the fork)
-	OverrideShanghai *big.Int `toml:",omitempty"`
+	OverrideShanghai *uint64 `toml:",omitempty"`
 }
 
 // CreateConsensusEngine creates a consensus engine for the given chain configuration.

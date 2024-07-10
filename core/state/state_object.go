@@ -366,11 +366,11 @@ func (s *stateObject) commitTrie(db Database) (*trie.NodeSet, error) {
 	if metrics.EnabledExpensive {
 		defer func(start time.Time) { s.db.StorageCommits += time.Since(start) }(time.Now())
 	}
-	root, nodes, err := s.trie.Commit(false)
-	if err == nil {
-		s.data.Root = root
-	}
-	return nodes, err
+	root, nodes := s.trie.Commit(false)
+
+	s.data.Root = root
+
+	return nodes, nil
 }
 
 // AddBalance adds amount to s's balance.

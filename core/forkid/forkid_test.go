@@ -19,7 +19,6 @@ package forkid
 import (
 	"bytes"
 	"math"
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -27,12 +26,14 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
+func u64(val uint64) *uint64 { return &val }
+
 // TestCreation tests that different genesis and fork rule combinations result in
 // the correct fork ID.
 func TestCreation(t *testing.T) {
 	// Temporary non-existent scenario TODO(karalabe): delete when Shanghai is enabled
 	timestampedConfig := *params.MainnetChainConfig
-	timestampedConfig.ShanghaiTime = big.NewInt(1668000000)
+	timestampedConfig.ShanghaiTime = u64(1668000000)
 
 	type testcase struct {
 		head uint64
@@ -75,31 +76,6 @@ func TestCreation(t *testing.T) {
 				{15049999, 0, ID{Hash: checksumToBytes(0x20c327fc), Next: 15050000}}, // Last Arrow Glacier block
 				{15050000, 0, ID{Hash: checksumToBytes(0xf0afd0e3), Next: 0}},        // First Gray Glacier block
 				{20000000, 0, ID{Hash: checksumToBytes(0xf0afd0e3), Next: 0}},        // Future Gray Glacier block
-			},
-		},
-		// Ropsten test cases
-		{
-			params.RopstenChainConfig,
-			params.RopstenGenesisHash,
-			[]testcase{
-				{0, 0, ID{Hash: checksumToBytes(0x30c7ddbc), Next: 10}},              // Unsynced, last Frontier, Homestead and first Tangerine block
-				{9, 0, ID{Hash: checksumToBytes(0x30c7ddbc), Next: 10}},              // Last Tangerine block
-				{10, 0, ID{Hash: checksumToBytes(0x63760190), Next: 1700000}},        // First Spurious block
-				{1699999, 0, ID{Hash: checksumToBytes(0x63760190), Next: 1700000}},   // Last Spurious block
-				{1700000, 0, ID{Hash: checksumToBytes(0x3ea159c7), Next: 4230000}},   // First Byzantium block
-				{4229999, 0, ID{Hash: checksumToBytes(0x3ea159c7), Next: 4230000}},   // Last Byzantium block
-				{4230000, 0, ID{Hash: checksumToBytes(0x97b544f3), Next: 4939394}},   // First Constantinople block
-				{4939393, 0, ID{Hash: checksumToBytes(0x97b544f3), Next: 4939394}},   // Last Constantinople block
-				{4939394, 0, ID{Hash: checksumToBytes(0xd6e2149b), Next: 6485846}},   // First Petersburg block
-				{6485845, 0, ID{Hash: checksumToBytes(0xd6e2149b), Next: 6485846}},   // Last Petersburg block
-				{6485846, 0, ID{Hash: checksumToBytes(0x4bc66396), Next: 7117117}},   // First Istanbul block
-				{7117116, 0, ID{Hash: checksumToBytes(0x4bc66396), Next: 7117117}},   // Last Istanbul block
-				{7117117, 0, ID{Hash: checksumToBytes(0x6727ef90), Next: 9812189}},   // First Muir Glacier block
-				{9812188, 0, ID{Hash: checksumToBytes(0x6727ef90), Next: 9812189}},   // Last Muir Glacier block
-				{9812189, 0, ID{Hash: checksumToBytes(0xa157d377), Next: 10499401}},  // First Berlin block
-				{10499400, 0, ID{Hash: checksumToBytes(0xa157d377), Next: 10499401}}, // Last Berlin block
-				{10499401, 0, ID{Hash: checksumToBytes(0x7119b6b3), Next: 0}},        // First London block
-				{11000000, 0, ID{Hash: checksumToBytes(0x7119b6b3), Next: 0}},        // Future London block
 			},
 		},
 		// Rinkeby test cases
@@ -146,9 +122,11 @@ func TestCreation(t *testing.T) {
 			params.SepoliaChainConfig,
 			params.SepoliaGenesisHash,
 			[]testcase{
-				{0, 0, ID{Hash: checksumToBytes(0xfe3366e7), Next: 1735371}},       // Unsynced, last Frontier, Homestead, Tangerine, Spurious, Byzantium, Constantinople, Petersburg, Istanbul, Berlin and first London block
-				{1735370, 0, ID{Hash: checksumToBytes(0xfe3366e7), Next: 1735371}}, // Last London block
-				{1735371, 0, ID{Hash: checksumToBytes(0xb96cbd13), Next: 0}},       // First MergeNetsplit block
+				{0, 0, ID{Hash: checksumToBytes(0xfe3366e7), Next: 1735371}},                   // Unsynced, last Frontier, Homestead, Tangerine, Spurious, Byzantium, Constantinople, Petersburg, Istanbul, Berlin and first London block
+				{1735370, 0, ID{Hash: checksumToBytes(0xfe3366e7), Next: 1735371}},             // Last London block
+				{1735371, 0, ID{Hash: checksumToBytes(0xb96cbd13), Next: 1677557088}},          // First MergeNetsplit block
+				{1735372, 1677557087, ID{Hash: checksumToBytes(0xb96cbd13), Next: 1677557088}}, // Last MergeNetsplit block
+				{1735372, 1677557088, ID{Hash: checksumToBytes(0xf7f9bc08), Next: 0}},          // First Shanghai block
 			},
 		},
 		// Temporary timestamped test cases
@@ -201,7 +179,7 @@ func TestCreation(t *testing.T) {
 func TestValidation(t *testing.T) {
 	// Temporary non-existent scenario TODO(karalabe): delete when Shanghai is enabled
 	timestampedConfig := *params.MainnetChainConfig
-	timestampedConfig.ShanghaiTime = big.NewInt(1668000000)
+	timestampedConfig.ShanghaiTime = u64(1668000000)
 
 	tests := []struct {
 		config *params.ChainConfig
@@ -387,10 +365,10 @@ func TestValidation(t *testing.T) {
 		// TODO(karalabe): Enable this when Cancun is specced, update local head and time, next timestamp
 		//{&timestampedConfig, 21123456, 1678123456, ID{Hash: checksumToBytes(0x71147644), Next: 1678000000}, nil},
 
-		// Local is mainnet Osaka, remote announces Shanghai + knowledge about Cancun. Remote
-		// is definitely out of sync. It may or may not need the Osaka update, we don't know yet.
+		// Local is mainnet Prague, remote announces Shanghai + knowledge about Cancun. Remote
+		// is definitely out of sync. It may or may not need the Prague update, we don't know yet.
 		//
-		// TODO(karalabe): Enable this when Cancun **and** Osaka is specced, update all the numbers
+		// TODO(karalabe): Enable this when Cancun **and** Prague is specced, update all the numbers
 		//{&timestampedConfig, 0, 0, ID{Hash: checksumToBytes(0x3edd5b10), Next: 4370000}, nil},
 
 		// Local is mainnet Shanghai, remote announces Cancun. Local is out of sync, accept.
@@ -398,10 +376,10 @@ func TestValidation(t *testing.T) {
 		// TODO(karalabe): Enable this when Cancun is specced, update remote checksum
 		//{&timestampedConfig, 21000000, 1678000000, ID{Hash: checksumToBytes(0x00000000), Next: 0}, nil},
 
-		// Local is mainnet Shanghai, remote announces Cancun, but is not aware of Osaka. Local
+		// Local is mainnet Shanghai, remote announces Cancun, but is not aware of Prague. Local
 		// out of sync. Local also knows about a future fork, but that is uncertain yet.
 		//
-		// TODO(karalabe): Enable this when Cancun **and** Osaka is specced, update remote checksum
+		// TODO(karalabe): Enable this when Cancun **and** Prague is specced, update remote checksum
 		//{&timestampedConfig, 21000000, 1678000000, ID{Hash: checksumToBytes(0x00000000), Next: 0}, nil},
 
 		// Local is mainnet Cancun. remote announces Shanghai but is not aware of further forks.
