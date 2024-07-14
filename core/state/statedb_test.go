@@ -1012,11 +1012,11 @@ func TestErase(t *testing.T) {
 	if val := obj.GetState(state.db, skey); (val != common.Hash{}) {
 		t.Fatal("erase not clear the storage")
 	}
-	if obj.data.Root != emptyRoot {
+	if obj.data.Root != types.EmptyRootHash {
 		t.Fatal("erase not clear the storage")
 		return
 	}
-	if !bytes.Equal(obj.CodeHash(), emptyCodeHash) {
+	if !bytes.Equal(obj.CodeHash(), types.EmptyCodeHash.Bytes()) {
 		t.Fatal("erase failed to clear the code hash")
 	}
 	if obj.Balance().Uint64() != uint64(1) {

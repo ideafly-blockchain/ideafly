@@ -43,11 +43,6 @@ type revision struct {
 	journalIndex int
 }
 
-var (
-	// emptyRoot is the known root hash of an empty trie.
-	emptyRoot = common.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
-)
-
 type proofList [][]byte
 
 func (n *proofList) Put(key []byte, value []byte) error {
@@ -611,10 +606,10 @@ func (s *StateDB) PrefetchStateObjects(block *types.Block, signer types.Signer) 
 					Root:     common.BytesToHash(account.Root),
 				}
 				if len(data.CodeHash) == 0 {
-					data.CodeHash = emptyCodeHash
+					data.CodeHash = types.EmptyCodeHash.Bytes()
 				}
 				if data.Root == (common.Hash{}) {
-					data.Root = emptyRoot
+					data.Root = types.EmptyRootHash
 				}
 				objsChan <- newObject(s, addr, *data)
 			} else {
@@ -660,10 +655,10 @@ func (s *StateDB) getDeletedStateObject(addr common.Address) *stateObject {
 				Root:     common.BytesToHash(acc.Root),
 			}
 			if len(data.CodeHash) == 0 {
-				data.CodeHash = emptyCodeHash
+				data.CodeHash = types.EmptyCodeHash.Bytes()
 			}
 			if data.Root == (common.Hash{}) {
-				data.Root = emptyRoot
+				data.Root = types.EmptyRootHash
 			}
 		}
 	}
@@ -1168,11 +1163,11 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 		s.stateObjectsDestruct = make(map[common.Address]struct{})
 	}
 	if root == (common.Hash{}) {
-		root = emptyRoot
+		root = types.EmptyRootHash
 	}
 	origin := s.originalRoot
 	if origin == (common.Hash{}) {
-		origin = emptyRoot
+		origin = types.EmptyRootHash
 	}
 	if root != origin {
 		start := time.Now()
@@ -1308,6 +1303,7 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 		storageTrieNodesDeleted int
 		nodes                   = trie.NewMergedNodeSet()
 	)
+
 	codeWriter := s.db.DiskDB().NewBatch()
 	for addr := range s.stateObjectsDirty {
 		if obj := s.stateObjects[addr]; !obj.deleted {
@@ -1341,7 +1337,6 @@ func (s *StateDB) AsyncCommit(deleteEmptyObjects bool, afterCommit func(common.H
 						log.Crit("Aync merge storage trie set error", "addr", addr, "err", err)
 						return
 					}
-
 					updates, deleted := set.Size()
 					storageTrieNodesUpdated += updates
 					storageTrieNodesDeleted += deleted
