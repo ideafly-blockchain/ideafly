@@ -1112,7 +1112,7 @@ func (api *API) tracePoSASysTx(ctx context.Context, sender common.Address, tx *t
 	}
 	// Run the transaction with tracing enabled.
 	vmctx.ExtraValidator = nil
-	vmenvWithoutTxCtx := vm.NewEVM(vmctx, vm.TxContext{}, statedb, api.backend.ChainConfig(), vm.Config{Debug: true, Tracer: tracer, NoBaseFee: true})
+	vmenvWithoutTxCtx := vm.NewEVM(vmctx, vm.TxContext{}, statedb, api.backend.ChainConfig(), vm.Config{Tracer: tracer, NoBaseFee: true})
 
 	_, _, err = api.posa.ApplySysTx(vmenvWithoutTxCtx, statedb, txctx.TxIndex, sender, tx)
 	if err != nil {

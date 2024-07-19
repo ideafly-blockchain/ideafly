@@ -88,7 +88,7 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	}
 
 	if !cfg.InternalTxTraceDisabled {
-		cfg.Debug = true
+		//cfg.Debug = true
 		tracer = vm.NewActionLogger(cfg.InternalTxTraceAll)
 		cfg.Tracer = tracer
 	}
