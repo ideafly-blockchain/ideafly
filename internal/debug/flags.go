@@ -179,7 +179,7 @@ func setupLogHandler(ctx *cli.Context) (handler log.Handler) {
 	output := io.Writer(os.Stderr)
 	if ctx.Bool(logjsonFlag.Name) {
 		format = log.JSONFormat()
-	} 	else if ctx.Bool(logfmtFlag.Name) {
+	} else if ctx.Bool(logfmtFlag.Name) {
 		format = log.LogfmtFormat()
 	} else {
 		usecolor := (isatty.IsTerminal(os.Stderr.Fd()) || isatty.IsCygwinTerminal(os.Stderr.Fd())) && os.Getenv("TERM") != "dumb"

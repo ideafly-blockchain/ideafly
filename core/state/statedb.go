@@ -532,7 +532,7 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 		panic(fmt.Errorf("can't encode object at %x: %v", addr[:], obj.rlpErr))
 	}
 
-	if err := s.trie.UpdateStorage(addr,addr[:], obj.accountRLP); err != nil {
+	if err := s.trie.UpdateStorage(addr, addr[:], obj.accountRLP); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
 	}
 

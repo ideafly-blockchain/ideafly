@@ -34,7 +34,7 @@ type Config struct {
 	// Trace and save all internal txs action, with input and output data. By default the node will only trace and save those with value greater then 0.
 	InternalTxTraceAll bool
 
-	ExtraEips               []int     // Additional EIPS that are to be enabled
+	ExtraEips []int // Additional EIPS that are to be enabled
 }
 
 // ScopeContext contains the things that are per-call, such as stack and memory,
