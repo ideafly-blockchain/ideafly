@@ -485,7 +485,6 @@ func (s *stateObject) Nonce() uint64 {
 	return s.data.Nonce
 }
 
-
 func (s *stateObject) erase() {
 	prevcode := s.Code(s.db.db)
 	s.db.journal.append(eraseChange{
