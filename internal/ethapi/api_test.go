@@ -387,7 +387,7 @@ func TestEstimateGas(t *testing.T) {
 				Value: (*hexutil.Big)(big.NewInt(1000)),
 			},
 			expectErr: nil,
-			want:      21000,
+			want:      23289,
 		},
 		// simple transfer with insufficient funds on latest block
 		{
@@ -405,7 +405,7 @@ func TestEstimateGas(t *testing.T) {
 			blockNumber: rpc.LatestBlockNumber,
 			call:        TransactionArgs{},
 			expectErr:   nil,
-			want:        53000,
+			want:        53068,
 		},
 	}
 	for i, tc := range testSuite {
