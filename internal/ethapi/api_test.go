@@ -183,6 +183,11 @@ type testBackend struct {
 	chain *core.BlockChain
 }
 
+func (b testBackend) CongestionRecord() int {
+	return 0
+	panic("implement me")
+}
+
 func newTestBackend(t *testing.T, n int, gspec *core.Genesis, generator func(i int, b *core.BlockGen)) *testBackend {
 	var (
 		engine  = ethash.NewFaker()
