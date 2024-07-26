@@ -187,7 +187,6 @@ type testBackend struct {
 
 func (b testBackend) CongestionRecord() int {
 	return 0
-	panic("implement me")
 }
 
 func newTestBackend(t *testing.T, n int, gspec *core.Genesis, generator func(i int, b *core.BlockGen)) *testBackend {
