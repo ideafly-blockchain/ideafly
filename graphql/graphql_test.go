@@ -141,7 +141,7 @@ func TestGraphQLBlockSerialization(t *testing.T) {
 		// since at this time, hi = 54628, lo =51825 , hi - lo < 4000
 		{
 			body: `{"query": "{block{ estimateGas(data:{}) }}"}`,
-			want: `{"data":{"block":{"estimateGas":0xd564}}}`,
+			want: `{"data":{"block":{"estimateGas":"0xd564"}}}`,
 			code: 200,
 		},
 		// should return `status` as decimal
