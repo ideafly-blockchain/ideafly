@@ -762,7 +762,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 
 	// If the transaction pool is full, discard underpriced transactions
 	if uint64(pool.all.Slots()+numSlots(tx)) > pool.config.GlobalSlots+pool.config.GlobalQueue {
-		if replaced, err := pool.handleUnderpriced(tx, isLocal, from, hash); err != nil {
+		if replaced, err := pool.handleUnderpriced(tx, isLocal, from); err != nil {
 			return replaced, err
 		}
 	}
@@ -790,7 +790,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 	return replaced, nil
 }
 
-func (pool *TxPool) handleUnderpriced(tx *types.Transaction, isLocal bool, from common.Address, hash common.Hash) (replaced bool, err error) {
+func (pool *TxPool) handleUnderpriced(tx *types.Transaction, isLocal bool, from common.Address) (replaced bool, err error) {
 	// If the new transaction is underpriced, don't accept it
 	if !isLocal && pool.priced.Underpriced(tx) {
 		log.Trace("Discarding underpriced transaction", "hash", tx.Hash(), "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
@@ -834,7 +834,7 @@ func (pool *TxPool) handleUnderpriced(tx *types.Transaction, isLocal bool, from 
 			for _, dropTx := range drop {
 				pool.priced.Put(dropTx, false)
 			}
-			log.Trace("Discarding future transaction replacing pending tx", "hash", hash)
+			log.Trace("Discarding future transaction replacing pending tx", "hash", tx.Hash())
 			return false, ErrFutureReplacePending
 		}
 	}
