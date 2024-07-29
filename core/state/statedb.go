@@ -1012,7 +1012,7 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 				// Encode the account and update the account trie
 				obj.accountRLP, obj.rlpErr = rlp.EncodeToBytes(&obj.data)
 				if s.snap != nil {
-					obj.slimAccountRLP = snapshot.SlimAccountRLP(obj.data.Nonce, obj.data.Balance, obj.data.Root, obj.data.CodeHash)
+					obj.slimAccountRLP = types.SlimAccountRLP(obj.data)
 				}
 				wg.Done()
 			})
