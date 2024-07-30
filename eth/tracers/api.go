@@ -86,7 +86,7 @@ type Backend interface {
 	Engine() consensus.Engine
 	ChainDb() ethdb.Database
 	StateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base *state.StateDB, readOnly bool, preferDisk bool) (*state.StateDB, StateReleaseFunc, error)
-	StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, StateReleaseFunc, error)
+	StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (*core.Message, vm.BlockContext, *state.StateDB, StateReleaseFunc, error)
 	ChainHeaderReader() consensus.ChainHeaderReader
 }
 
@@ -312,7 +312,7 @@ func (api *API) traceChain(start, end *types.Block, config *TraceConfig, closed 
 				}
 				// Trace all the transactions contained within
 				for i, tx := range task.block.Transactions() {
-					msg, _ := tx.AsMessage(signer, task.block.BaseFee())
+					msg, _ := core.TransactionToMessage(tx, signer, task.block.BaseFee())
 					txctx := &Context{
 						BlockHash:   task.block.Hash(),
 						BlockNumber: task.block.Number(),
@@ -325,10 +325,10 @@ func (api *API) traceChain(start, end *types.Block, config *TraceConfig, closed 
 						isSysTx bool
 					)
 					if api.isPoSA {
-						isSysTx, _ = api.posa.IsSysTransaction(msg.From(), tx, header)
+						isSysTx, _ = api.posa.IsSysTransaction(msg.From, tx, header)
 					}
 					if isSysTx {
-						res, err = api.tracePoSASysTx(ctx, msg.From(), tx, txctx, blockCtx, task.statedb, config)
+						res, err = api.tracePoSASysTx(ctx, msg.From, tx, txctx, blockCtx, task.statedb, config)
 					} else {
 						res, err = api.traceTx(ctx, msg, txctx, blockCtx, task.statedb, config)
 					}
@@ -585,12 +585,12 @@ func (api *API) IntermediateRoots(ctx context.Context, hash common.Hash, config 
 			return nil, err
 		}
 		var (
-			msg, _    = tx.AsMessage(signer, block.BaseFee())
+			msg, _    = core.TransactionToMessage(tx, signer, block.BaseFee())
 			txContext = core.NewEVMTxContext(msg)
 			vmenv     = vm.NewEVM(vmctx, txContext, statedb, chainConfig, vm.Config{})
 		)
 		statedb.SetTxContext(tx.Hash(), i)
-		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas())); err != nil {
+		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.GasLimit)); err != nil {
 			log.Warn("Tracing intermediate roots did not complete", "txindex", i, "txhash", tx.Hash(), "err", err)
 			// We intentionally don't return the error here: if we do, then the RPC server will not
 			// return the roots. Most likely, the caller already knows that a certain transaction fails to
@@ -659,7 +659,7 @@ func (api *API) traceBlock(ctx context.Context, block *types.Block, config *Trac
 	)
 	for i, tx := range txs {
 		// Generate the next state snapshot fast without tracing
-		msg, _ := tx.AsMessage(signer, block.BaseFee())
+		msg, _ := core.TransactionToMessage(tx, signer, block.BaseFee())
 		txctx := &Context{
 			BlockHash:   blockHash,
 			BlockNumber: block.Number(),
@@ -712,7 +712,7 @@ func (api *API) traceBlockParallel(ctx context.Context, block *types.Block, stat
 			defer pend.Done()
 			// Fetch and execute the next transaction trace tasks
 			for task := range jobs {
-				msg, _ := txs[task.index].AsMessage(signer, block.BaseFee())
+				msg, _ := core.TransactionToMessage(txs[task.index], signer, block.BaseFee())
 				txctx := &Context{
 					BlockHash:   blockHash,
 					BlockNumber: block.Number(),
@@ -723,7 +723,7 @@ func (api *API) traceBlockParallel(ctx context.Context, block *types.Block, stat
 				var err error
 				if task.isSysTx {
 					tx := txs[task.index]
-					res, err = api.tracePoSASysTx(ctx, msg.From(), tx, txctx, blockCtx, task.statedb, config)
+					res, err = api.tracePoSASysTx(ctx, msg.From, tx, txctx, blockCtx, task.statedb, config)
 				} else {
 					res, err = api.traceTx(ctx, msg, txctx, blockCtx, task.statedb, config)
 				}
@@ -755,10 +755,10 @@ txloop:
 		}
 
 		// Generate the next state snapshot fast without tracing
-		msg, _ := tx.AsMessage(signer, block.BaseFee())
+		msg, _ := core.TransactionToMessage(tx, signer, block.BaseFee())
 		vmenv := vm.NewEVM(blockCtx, core.NewEVMTxContext(msg), statedb, api.backend.ChainConfig(), vm.Config{})
 		if isSysTx {
-			if _, _, err := api.posa.ApplySysTx(vmenv, statedb, i, msg.From(), tx); err != nil {
+			if _, _, err := api.posa.ApplySysTx(vmenv, statedb, i, msg.From, tx); err != nil {
 				failed = err
 				break
 			}
@@ -766,7 +766,7 @@ txloop:
 		}
 
 		statedb.SetTxContext(tx.Hash(), i)
-		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas())); err != nil {
+		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.GasLimit)); err != nil {
 			failed = err
 			break txloop
 		}
@@ -849,7 +849,7 @@ func (api *API) standardTraceBlockToFile(ctx context.Context, block *types.Block
 	for i, tx := range block.Transactions() {
 		// Prepare the transaction for un-traced execution
 		var (
-			msg, _    = tx.AsMessage(signer, block.BaseFee())
+			msg, _    = core.TransactionToMessage(tx, signer, block.BaseFee())
 			txContext = core.NewEVMTxContext(msg)
 			vmConf    vm.Config
 			dump      *os.File
@@ -881,13 +881,13 @@ func (api *API) standardTraceBlockToFile(ctx context.Context, block *types.Block
 		vmenv := vm.NewEVM(vmctx, txContext, statedb, chainConfig, vmConf)
 		var isSysTx bool
 		if api.isPoSA {
-			isSysTx, _ = api.posa.IsSysTransaction(msg.From(), tx, header)
+			isSysTx, _ = api.posa.IsSysTransaction(msg.From, tx, header)
 		}
 		if isSysTx {
-			_, _, err = api.posa.ApplySysTx(vmenv, statedb, i, msg.From(), tx)
+			_, _, err = api.posa.ApplySysTx(vmenv, statedb, i, msg.From, tx)
 		} else {
 			statedb.SetTxContext(tx.Hash(), i)
-			_, err = core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.Gas()))
+			_, err = core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.GasLimit))
 		}
 		if writer != nil {
 			writer.Flush()
@@ -955,9 +955,9 @@ func (api *API) TraceTransaction(ctx context.Context, hash common.Hash, config *
 	}
 	if api.isPoSA {
 		tx := block.Transactions()[int(index)]
-		ok, _ := api.posa.IsSysTransaction(msg.From(), tx, block.Header())
+		ok, _ := api.posa.IsSysTransaction(msg.From, tx, block.Header())
 		if ok {
-			return api.tracePoSASysTx(ctx, msg.From(), tx, txctx, vmctx, statedb, config)
+			return api.tracePoSASysTx(ctx, msg.From, tx, txctx, vmctx, statedb, config)
 		}
 	}
 	return api.traceTx(ctx, msg, txctx, vmctx, statedb, config)
@@ -1028,7 +1028,7 @@ func (api *API) TraceCall(ctx context.Context, args ethapi.TransactionArgs, bloc
 // traceTx configures a new tracer according to the provided configuration, and
 // executes the given message in the provided environment. The return value will
 // be tracer dependent.
-func (api *API) traceTx(ctx context.Context, message core.Message, txctx *Context, vmctx vm.BlockContext, statedb *state.StateDB, config *TraceConfig) (interface{}, error) {
+func (api *API) traceTx(ctx context.Context, message *core.Message, txctx *Context, vmctx vm.BlockContext, statedb *state.StateDB, config *TraceConfig) (interface{}, error) {
 	var (
 		tracer    Tracer
 		err       error
@@ -1067,7 +1067,7 @@ func (api *API) traceTx(ctx context.Context, message core.Message, txctx *Contex
 
 	// Call Prepare to clear out the statedb access list
 	statedb.SetTxContext(txctx.TxHash, txctx.TxIndex)
-	if _, err = core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.Gas())); err != nil {
+	if _, err = core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.GasLimit)); err != nil {
 		return nil, fmt.Errorf("tracing failed: %w", err)
 	}
 	return tracer.GetResult()
