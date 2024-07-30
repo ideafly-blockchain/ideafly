@@ -81,7 +81,7 @@ func New(id *ID, db NodeReader) (*Trie, error) {
 	trie := &Trie{
 		owner:  id.Owner,
 		reader: reader,
-		//tracer: newTracer(),
+		tracer: newTracer(),
 	}
 	if id.Root != (common.Hash{}) && id.Root != types.EmptyRootHash {
 		rootnode, err := trie.resolveAndTrack(id.Root[:], nil)
@@ -548,7 +548,7 @@ func (t *Trie) resolveAndTrack(n hashNode, prefix []byte) (node, error) {
 // Hash returns the root hash of the trie. It does not write to the
 // database and can be used even if the trie doesn't have one.
 func (t *Trie) Hash() common.Hash {
-	hash, cached, _ := t.hashRoot()
+	hash, cached := t.hashRoot()
 	t.root = cached
 	return common.BytesToHash(hash.(hashNode))
 }
@@ -562,14 +562,14 @@ func (t *Trie) Hash() common.Hash {
 func (t *Trie) Commit(collectLeaf bool) (common.Hash, *NodeSet) {
 	defer t.tracer.reset()
 
+	nodes := NewNodeSet(t.owner, t.tracer.accessList)
+	t.tracer.markDeletions(nodes)
+
 	// Trie is empty and can be classified into two types of situations:
 	// - The trie was empty and no update happens
 	// - The trie was non-empty and all nodes are dropped
 	if t.root == nil {
-		// Wrap tracked deletions as the return
-		set := NewNodeSet(t.owner)
-		t.tracer.markDeletions(set)
-		return types.EmptyRootHash, set
+		return types.EmptyRootHash, nodes
 	}
 	// Derive the hash for all dirty nodes first. We hold the assumption
 	// in the following procedure that all nodes are hashed.
@@ -583,16 +583,14 @@ func (t *Trie) Commit(collectLeaf bool) (common.Hash, *NodeSet) {
 		t.root = hashedNode
 		return rootHash, nil
 	}
-	h := newCommitter(t.owner, t.tracer, collectLeaf)
-	newRoot, nodes := h.Commit(t.root)
-	t.root = newRoot
+	t.root = newCommitter(nodes, collectLeaf).Commit(t.root)
 	return rootHash, nodes
 }
 
 // hashRoot calculates the root hash of the given trie
-func (t *Trie) hashRoot() (node, node, error) {
+func (t *Trie) hashRoot() (node, node) {
 	if t.root == nil {
-		return hashNode(types.EmptyRootHash.Bytes()), nil, nil
+		return hashNode(types.EmptyRootHash.Bytes()), nil
 	}
 	// If the number of changes is below 100, we let one thread handle it
 	var h *hasher
@@ -601,10 +599,12 @@ func (t *Trie) hashRoot() (node, node, error) {
 	} else {
 		h = newHasherWithCache(t.unhashed >= 100, t.reader.reader.GetDirtyHashCache())
 	}
-	defer returnHasherToPool(h)
+	defer func() {
+		returnHasherToPool(h)
+		t.unhashed = 0
+	}()
 	hashed, cached := h.hash(t.root, true)
-	t.unhashed = 0
-	return hashed, cached, nil
+	return hashed, cached
 }
 
 // Reset drops the referenced root node and cleans all internal state.
@@ -612,5 +612,6 @@ func (t *Trie) Reset() {
 	t.root = nil
 	t.owner = common.Hash{}
 	t.unhashed = 0
+	t.tracer = newTracer()
 	t.tracer.reset()
 }
