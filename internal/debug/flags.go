@@ -55,15 +55,27 @@ var (
 		Name:  "metriclog",
 		Usage: "Write metric info to log files",
 	}
+	logVmoduleFlag = &cli.StringFlag{
+		Name:     "log.vmodule",
+		Usage:    "Per-module verbosity: comma-separated list of <pattern>=<level> (e.g. eth/*=5,p2p=4)",
+		Value:    "",
+		Category: flags.LoggingCategory,
+	}
 	vmoduleFlag = &cli.StringFlag{
 		Name:     "vmodule",
 		Usage:    "Per-module verbosity: comma-separated list of <pattern>=<level> (e.g. eth/*=5,p2p=4)",
 		Value:    "",
+		Hidden:   true,
 		Category: flags.LoggingCategory,
 	}
 	logjsonFlag = &cli.BoolFlag{
 		Name:     "log.json",
 		Usage:    "Format logs with JSON",
+		Category: flags.LoggingCategory,
+	}
+	logfmtFlag = &cli.BoolFlag{
+		Name:     "log.logfmt",
+		Usage:    "Format logs with logfmt",
 		Category: flags.LoggingCategory,
 	}
 	backtraceAtFlag = &cli.StringFlag{
@@ -122,8 +134,10 @@ var Flags = []cli.Flag{
 	verbosityFlag,
 	logPathFlag,
 	metricLogFlag,
+	logVmoduleFlag,
 	vmoduleFlag,
 	logjsonFlag,
+	logfmtFlag,
 	backtraceAtFlag,
 	debugFlag,
 	pprofFlag,
@@ -165,6 +179,8 @@ func setupLogHandler(ctx *cli.Context) (handler log.Handler) {
 	output := io.Writer(os.Stderr)
 	if ctx.Bool(logjsonFlag.Name) {
 		format = log.JSONFormat()
+	} else if ctx.Bool(logfmtFlag.Name) {
+		format = log.LogfmtFormat()
 	} else {
 		usecolor := (isatty.IsTerminal(os.Stderr.Fd()) || isatty.IsCygwinTerminal(os.Stderr.Fd())) && os.Getenv("TERM") != "dumb"
 		if usecolor {
@@ -211,7 +227,14 @@ func Setup(ctx *cli.Context) error {
 	// logging
 	verbosity := ctx.Int(verbosityFlag.Name)
 	glogger.Verbosity(log.Lvl(verbosity))
-	vmodule := ctx.String(vmoduleFlag.Name)
+	vmodule := ctx.String(logVmoduleFlag.Name)
+	if vmodule == "" {
+		// Retain backwards compatibility with `--vmodule` flag if `--log.vmodule` not set
+		vmodule = ctx.String(vmoduleFlag.Name)
+		if vmodule != "" {
+			defer log.Warn("The flag '--vmodule' is deprecated, please use '--log.vmodule' instead")
+		}
+	}
 	glogger.Vmodule(vmodule)
 
 	backtrace := ctx.String(backtraceAtFlag.Name)
