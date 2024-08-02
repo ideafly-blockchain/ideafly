@@ -142,13 +142,12 @@ type Config struct {
 	RequiredBlocks map[uint64]common.Hash `toml:"-"`
 
 	// Light client options
-	LightServ          int  `toml:",omitempty"` // Maximum percentage of time allowed for serving LES requests
-	LightIngress       int  `toml:",omitempty"` // Incoming bandwidth limit for light servers
-	LightEgress        int  `toml:",omitempty"` // Outgoing bandwidth limit for light servers
-	LightPeers         int  `toml:",omitempty"` // Maximum number of LES client peers
-	LightNoPrune       bool `toml:",omitempty"` // Whether to disable light chain pruning
-	LightNoSyncServe   bool `toml:",omitempty"` // Whether to serve light clients before syncing
-	SyncFromCheckpoint bool `toml:",omitempty"` // Whether to sync the header chain from the configured checkpoint
+	LightServ        int  `toml:",omitempty"` // Maximum percentage of time allowed for serving LES requests
+	LightIngress     int  `toml:",omitempty"` // Incoming bandwidth limit for light servers
+	LightEgress      int  `toml:",omitempty"` // Outgoing bandwidth limit for light servers
+	LightPeers       int  `toml:",omitempty"` // Maximum number of LES client peers
+	LightNoPrune     bool `toml:",omitempty"` // Whether to disable light chain pruning
+	LightNoSyncServe bool `toml:",omitempty"` // Whether to serve light clients before syncing
 
 	// Ultra Light client options
 	UltraLightServers      []string `toml:",omitempty"` // List of trusted ultra light servers
@@ -200,18 +199,12 @@ type Config struct {
 	// send-transaction variants. The unit is ether.
 	RPCTxFeeCap float64
 
-	// Checkpoint is a hardcoded checkpoint which can be nil.
-	Checkpoint *params.TrustedCheckpoint `toml:",omitempty"`
-
-	// CheckpointOracle is the configuration for checkpoint oracle.
-	CheckpointOracle *params.CheckpointOracleConfig `toml:",omitempty"`
-
 	// Disable internal txs trace. By default the node will trace and save those internal txs with value greater then 0.
 	InternalTxTraceDisabled bool `toml:",omitempty"`
 	// Trace and save all internal txs action, with input and output data. By default the node will only trace and save those with value greater then 0.
 	InternalTxTraceAll bool `toml:",omitempty"`
-	// OverrideShanghai (TODO: remove after the fork)
-	OverrideShanghai *uint64 `toml:",omitempty"`
+	// OverrideCancun (TODO: remove after the fork)
+	OverrideCancun *uint64 `toml:",omitempty"`
 }
 
 // CreateConsensusEngine creates a consensus engine for the given chain configuration.

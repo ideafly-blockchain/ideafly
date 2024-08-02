@@ -213,7 +213,7 @@ func (api *ConsensusAPI) ExchangeTransitionConfigurationV1(config beacon.Transit
 				TerminalBlockNumber:     config.TerminalBlockNumber,
 			}, nil
 		}
-		return nil, fmt.Errorf("invalid terminal block hash")
+		return nil, errors.New("invalid terminal block hash")
 	}
 
 	return &beacon.TransitionConfigurationV1{TerminalTotalDifficulty: (*hexutil.Big)(ttd)}, nil

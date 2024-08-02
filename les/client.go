@@ -18,7 +18,7 @@
 package les
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 	"time"
 
@@ -94,8 +94,8 @@ func New(stack *node.Node, config *ethconfig.Config) (*LightEthereum, error) {
 		return nil, err
 	}
 	var overrides core.ChainOverrides
-	if config.OverrideShanghai != nil {
-		overrides.OverrideShanghai = config.OverrideShanghai
+	if config.OverrideCancun != nil {
+		overrides.OverrideCancun = config.OverrideCancun
 	}
 	chainConfig, genesisHash, genesisErr := core.SetupGenesisBlockWithOverride(chainDb, trie.NewDatabase(chainDb), config.Genesis, &overrides)
 	if _, isCompat := genesisErr.(*params.ConfigCompatError); genesisErr != nil && !isCompat {
@@ -150,20 +150,13 @@ func New(stack *node.Node, config *ethconfig.Config) (*LightEthereum, error) {
 	leth.bloomTrieIndexer = light.NewBloomTrieIndexer(chainDb, leth.odr, params.BloomBitsBlocksClient, params.BloomTrieFrequency, config.LightNoPrune)
 	leth.odr.SetIndexers(leth.chtIndexer, leth.bloomTrieIndexer, leth.bloomIndexer)
 
-	checkpoint := config.Checkpoint
-	if checkpoint == nil {
-		checkpoint = params.TrustedCheckpoints[genesisHash]
-	}
 	// Note: NewLightChain adds the trusted checkpoint so it needs an ODR with
 	// indexers already set but not started yet
-	if leth.blockchain, err = light.NewLightChain(leth.odr, leth.chainConfig, leth.engine, checkpoint); err != nil {
+	if leth.blockchain, err = light.NewLightChain(leth.odr, leth.chainConfig, leth.engine); err != nil {
 		return nil, err
 	}
 	leth.chainReader = leth.blockchain
 	leth.txPool = light.NewTxPool(leth.chainConfig, leth.blockchain, leth.relay)
-
-	// Set up checkpoint oracle.
-	leth.oracle = leth.setupOracle(stack, genesisHash, config)
 
 	// Note: AddChildIndexer starts the update process for the child
 	leth.bloomIndexer.AddChildIndexer(leth.bloomTrieIndexer)
@@ -191,7 +184,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*LightEthereum, error) {
 	}
 	leth.ApiBackend.gpo = gasprice.NewOracle(leth.ApiBackend, gpoParams)
 
-	leth.handler = newClientHandler(config.UltraLightServers, config.UltraLightFraction, checkpoint, leth)
+	leth.handler = newClientHandler(config.UltraLightServers, config.UltraLightFraction, leth)
 	if leth.handler.ulc != nil {
 		log.Warn("Ultra light client is enabled", "trustedNodes", len(leth.handler.ulc.keys), "minTrustedFraction", leth.handler.ulc.fraction)
 		leth.blockchain.DisableCheckFreq()
@@ -276,12 +269,12 @@ type LightDummyAPI struct{}
 
 // Etherbase is the address that mining rewards will be send to
 func (s *LightDummyAPI) Etherbase() (common.Address, error) {
-	return common.Address{}, fmt.Errorf("mining is not supported in light mode")
+	return common.Address{}, errors.New("mining is not supported in light mode")
 }
 
 // Coinbase is the address that mining rewards will be send to (alias for Etherbase)
 func (s *LightDummyAPI) Coinbase() (common.Address, error) {
-	return common.Address{}, fmt.Errorf("mining is not supported in light mode")
+	return common.Address{}, errors.New("mining is not supported in light mode")
 }
 
 // Hashrate returns the POW hashrate
@@ -309,9 +302,6 @@ func (s *LightEthereum) APIs() []rpc.API {
 		}, {
 			Namespace: "net",
 			Service:   s.netRPCService,
-		}, {
-			Namespace: "les",
-			Service:   NewLightAPI(&s.lesCommons),
 		}, {
 			Namespace: "vflux",
 			Service:   s.serverPool.API(),

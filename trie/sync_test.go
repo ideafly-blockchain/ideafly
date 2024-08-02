@@ -32,7 +32,7 @@ import (
 func makeTestTrie() (*Database, *StateTrie, map[string][]byte) {
 	// Create an empty trie
 	triedb := NewDatabase(rawdb.NewMemoryDatabase())
-	trie, _ := NewStateTrie(TrieID(common.Hash{}), triedb)
+	trie, _ := NewStateTrie(TrieID(types.EmptyRootHash), triedb)
 
 	// Fill it with some arbitrary data
 	content := make(map[string][]byte)
