@@ -445,16 +445,9 @@ func forEachStorage(s *StateDB, addr common.Address, cb func(key, value common.H
 	if so == nil {
 		return nil
 	}
-	tr, err := so.getTrie()
-	if err != nil {
-		return err
-	}
-	trieIt, err := tr.NodeIterator(nil)
-	if err != nil {
-		return err
-	}
+	tr := so.getTrie(s.db)
+	trieIt := tr.NodeIterator(nil)
 	it := trie.NewIterator(trieIt)
-
 	for it.Next() {
 		key := common.BytesToHash(s.trie.GetKey(it.Key))
 		if value, dirty := so.dirtyStorage[key]; dirty {
