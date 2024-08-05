@@ -45,8 +45,7 @@ func (obj *Header) EncodeRLP(_w io.Writer) error {
 	w.WriteBytes(obj.Nonce[:])
 	_tmp1 := obj.BaseFee != nil
 	_tmp3 := obj.ExcessDataGas != nil
-
-	if _tmp1 || _tmp3 {
+	if _tmp1||_tmp3 {
 		if obj.BaseFee == nil {
 			w.Write(rlp.EmptyString)
 		} else {

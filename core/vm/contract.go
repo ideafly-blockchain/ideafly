@@ -106,19 +106,6 @@ func (c *Contract) isCode(udest uint64) bool {
 	// Do we have a contract hash already?
 	// If we do have a hash, that means it's a 'regular' contract. For regular
 	// contracts ( not temporary initcode), we store the analysis in a map
-	if c.CodeHash != (common.Hash{}) && c.CodeHash != emptyCodeHash {
-		// Does parent context have the analysis?
-		analysis, exist := c.jumpdests[c.CodeHash]
-		if !exist {
-			// Do the analysis and save in parent context
-			// We do not need to store it in c.analysis
-			analysis = codeBitmapWithCache(c.Code, c.CodeHash)
-			c.jumpdests[c.CodeHash] = analysis
-		}
-		// Also stash it in current contract for faster access
-		c.analysis = analysis
-		return analysis.codeSegment(udest)
-	}
 	// We don't have the code hash, most likely a piece of initcode not already
 	// in state trie. In that case, we do an analysis, and save it locally, so
 	// we don't have to recalculate it for every JUMP instruction in the execution

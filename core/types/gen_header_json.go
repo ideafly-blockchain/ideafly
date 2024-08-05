@@ -32,7 +32,7 @@ func (h Header) MarshalJSON() ([]byte, error) {
 		MixDigest   common.Hash    `json:"mixHash"`
 		Nonce       BlockNonce     `json:"nonce"`
 		BaseFee     *hexutil.Big   `json:"baseFeePerGas" rlp:"optional"`
-		ExcessDataGas   *big.Int
+		ExcessDataGas   *big.Int       `json:"excessDataGas" rlp:"optional"`
 		Hash        common.Hash    `json:"hash"`
 	}
 	var enc Header

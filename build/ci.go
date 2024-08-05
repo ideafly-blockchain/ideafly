@@ -139,7 +139,7 @@ var (
 	// This is the version of Go that will be downloaded by
 	//
 	//     go run ci.go install -dlgo
-	dlgoVersion = "1.20.3"
+	dlgoVersion = "1.20.7"
 
 	// This is the version of Go that will be used to bootstrap the PPA builder.
 	//
@@ -301,6 +301,8 @@ func doTest(cmdline []string) {
 		tc.Root = build.DownloadGo(csdb, dlgoVersion)
 	}
 	gotest := tc.Go("test", "-tags=ckzg")
+	// CI needs a bit more time for the statetests (default 10m).
+	gotest.Args = append(gotest.Args, "-timeout=20m")
 
 	// CI needs a bit more time for the statetests (default 10m).
 	gotest.Args = append(gotest.Args, "-timeout=20m")

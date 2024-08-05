@@ -544,6 +544,11 @@ web3._extend({
 			call: 'debug_setTrieFlushInterval',
 			params: 1
 		}),
+		new web3._extend.Method({
+			name: 'getTrieFlushInterval',
+			call: 'debug_getTrieFlushInterval',
+			params: 0
+		}),
 	],
 	properties: []
 });
@@ -705,8 +710,6 @@ web3._extend({
 		new web3._extend.Method({
 			name: 'start',
 			call: 'miner_start',
-			params: 1,
-			inputFormatter: [null]
 		}),
 		new web3._extend.Method({
 			name: 'stop',
