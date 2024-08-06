@@ -344,7 +344,7 @@ func (s *StateDB) GetStorageProof(a common.Address, key common.Hash) ([][]byte, 
 	if trie == nil {
 		return proof, errors.New("storage trie for requested address does not exist")
 	}
-	err := trie.Prove(crypto.Keccak256(key.Bytes()),&proof)
+	err := trie.Prove(crypto.Keccak256(key.Bytes()), &proof)
 	return proof, err
 }
 

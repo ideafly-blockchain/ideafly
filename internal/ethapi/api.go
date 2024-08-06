@@ -735,7 +735,7 @@ func (s *BlockChainAPI) GetProof(ctx context.Context, address common.Address, st
 	if state == nil || err != nil {
 		return nil, err
 	}
-	storageTrie= state.StorageTrie(address)
+	storageTrie = state.StorageTrie(address)
 	if storageTrie != nil {
 		storageHash = storageTrie.Hash()
 		codeHash = state.GetCodeHash(address)

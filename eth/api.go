@@ -50,4 +50,3 @@ func (api *EthereumAPI) Hashrate() hexutil.Uint64 {
 func (api *EthereumAPI) Mining() bool {
 	return api.e.IsMining()
 }
-

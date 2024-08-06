@@ -199,7 +199,6 @@ type Config struct {
 	// send-transaction variants. The unit is ether.
 	RPCTxFeeCap float64
 
-
 	// Disable internal txs trace. By default the node will trace and save those internal txs with value greater then 0.
 	InternalTxTraceDisabled bool `toml:",omitempty"`
 	// Trace and save all internal txs action, with input and output data. By default the node will only trace and save those with value greater then 0.
