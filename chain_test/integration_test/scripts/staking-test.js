@@ -394,6 +394,18 @@ async function main() {
     manager = await ethers.getSigner(managerAddr);
     console.log(`admin addr: ${adminAddr}`);
     console.log(`manager addr: ${managerAddr}`);
+    let currBlock = await ethers.provider.getBlockNumber();
+    let i = 0;
+    while(i < 5 && currBlock < 2) {
+        console.log(`Wait untill blockchain running, current block number: ${currBlock}`);
+        await sleep(2000);
+        i += 1;
+        if (i >= 5) {
+            console.log("Chain not running!");
+            process.exit(1);
+        }
+        currBlock = await ethers.provider.getBlockNumber();
+    }
 
     const validator = await ethers.getContractAt(Validators_ABI, validatorConAddr, admin);
     console.log(".");
