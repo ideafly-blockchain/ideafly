@@ -43,9 +43,9 @@ type txJSON struct {
 	To                   *common.Address `json:"to"`
 
 	// Access list transaction fields:
-	ChainID    *hexutil.Big `json:"chainId,omitempty"`
-	AccessList *AccessList  `json:"accessList,omitempty"`
-	YParity              *hexutil.Uint64 `json:"yParity,omitempty"`
+	ChainID    *hexutil.Big    `json:"chainId,omitempty"`
+	AccessList *AccessList     `json:"accessList,omitempty"`
+	YParity    *hexutil.Uint64 `json:"yParity,omitempty"`
 
 	// Only used for encoding:
 	Hash common.Hash `json:"hash"`

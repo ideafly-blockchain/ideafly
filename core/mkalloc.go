@@ -30,6 +30,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 
@@ -79,7 +80,7 @@ func makelist(g *core.Genesis) allocList {
 			})
 		}
 		bigAddr := new(big.Int).SetBytes(addr.Bytes())
-		a = append(a, allocItem{bigAddr, account.Balance,misc})
+		a = append(a, allocItem{bigAddr, account.Balance, misc})
 	}
 	sort.Sort(a)
 	return a

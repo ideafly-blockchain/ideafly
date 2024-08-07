@@ -123,12 +123,12 @@ var (
 	//   wily, yakkety, zesty, artful, cosmic, disco, eoan, groovy, hirsuite, impish,
 	//   kinetic
 	debDistroGoBoots = map[string]string{
-		"trusty":  "golang-1.11", // EOL: 04/2024
-		"xenial":  "golang-go",   // EOL: 04/2026
-		"bionic":  "golang-go",   // EOL: 04/2028
-		"focal":   "golang-go",   // EOL: 04/2030
-		"jammy":   "golang-go",   // EOL: 04/2032
-		"lunar":   "golang-go",   // EOL: 01/2024
+		"trusty": "golang-1.11", // EOL: 04/2024
+		"xenial": "golang-go",   // EOL: 04/2026
+		"bionic": "golang-go",   // EOL: 04/2028
+		"focal":  "golang-go",   // EOL: 04/2030
+		"jammy":  "golang-go",   // EOL: 04/2032
+		"lunar":  "golang-go",   // EOL: 01/2024
 	}
 
 	debGoBootPaths = map[string]string{
