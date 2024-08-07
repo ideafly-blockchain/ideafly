@@ -20,7 +20,6 @@ package forkid
 import (
 	"encoding/binary"
 	"errors"
-	"github.com/ethereum/go-ethereum/common"
 	"hash/crc32"
 	"math"
 	"math/big"
@@ -28,6 +27,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
@@ -115,7 +115,7 @@ func NewIDWithChain(chain Blockchain) ID {
 func NewFilter(chain Blockchain) Filter {
 	return newFilter(
 		chain.Config(),
-		chain.Genesis(),
+		chain.Genesis().Hash(),
 		func() (uint64, uint64) {
 			head := chain.CurrentHeader()
 			return head.Number.Uint64(), head.Time
@@ -124,7 +124,7 @@ func NewFilter(chain Blockchain) Filter {
 }
 
 // NewStaticFilter creates a filter at block zero.
-func NewStaticFilter(config *params.ChainConfig, genesis *types.Block) Filter {
+func NewStaticFilter(config *params.ChainConfig, genesis common.Hash) Filter {
 	head := func() (uint64, uint64) { return 0, 0 }
 	return newFilter(config, genesis, head)
 }
@@ -132,14 +132,14 @@ func NewStaticFilter(config *params.ChainConfig, genesis *types.Block) Filter {
 // newFilter is the internal version of NewFilter, taking closures as its arguments
 // instead of a chain. The reason is to allow testing it without having to simulate
 // an entire blockchain.
-func newFilter(config *params.ChainConfig, genesis *types.Block, headfn func() (uint64, uint64)) Filter {
+func newFilter(config *params.ChainConfig, genesis common.Hash, headfn func() (uint64, uint64)) Filter {
 	// Calculate the all the valid fork hash and fork next combos
 	var (
 		forksByBlock, forksByTime = gatherForks(config)
 		forks                     = append(append([]uint64{}, forksByBlock...), forksByTime...)
 		sums                      = make([][4]byte, len(forks)+1) // 0th is the genesis
 	)
-	hash := crc32.ChecksumIEEE(genesis.Hash().Bytes())
+	hash := crc32.ChecksumIEEE(genesis[:])
 	sums[0] = checksumToBytes(hash)
 	for i, fork := range forks {
 		hash = checksumUpdate(hash, fork)
@@ -290,7 +290,6 @@ func gatherForks(config *params.ChainConfig) ([]uint64, []uint64) {
 	if len(forksByBlock) > 0 && forksByBlock[0] == 0 {
 		forksByBlock = forksByBlock[1:]
 	}
-	// Skip any forks before genesis.
 	if len(forksByTime) > 0 && forksByTime[0] == 0 {
 		forksByTime = forksByTime[1:]
 	}
