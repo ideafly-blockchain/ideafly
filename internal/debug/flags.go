@@ -90,11 +90,6 @@ var (
 		Usage:    "Prepends log messages with call-site location (file and line number)",
 		Category: flags.LoggingCategory,
 	}
-	logRotateFlag = &cli.BoolFlag{
-		Name:     "log.rotate",
-		Usage:    "Enables log file rotation",
-		Category: flags.LoggingCategory,
-	}
 	pprofFlag = &cli.BoolFlag{
 		Name:     "pprof",
 		Usage:    "Enable the pprof HTTP server",
