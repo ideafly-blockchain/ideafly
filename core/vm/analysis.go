@@ -124,14 +124,3 @@ func codeBitmapInternal(code, bits bitvec) bitvec {
 	}
 	return bits
 }
-
-//func codeBitmapWithCache(code []byte, codeHash common.Hash) bitvec {
-//
-//	if val, ok := codeBitmapCache.Get(codeHash); ok {
-//		return val.(bitvec)
-//	} else {
-//		val := codeBitmap(code)
-//		codeBitmapCache.Add(codeHash, val)
-//		return val
-//	}
-//}
