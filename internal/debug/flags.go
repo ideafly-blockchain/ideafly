@@ -95,30 +95,6 @@ var (
 		Usage:    "Enables log file rotation",
 		Category: flags.LoggingCategory,
 	}
-	logMaxSizeMBsFlag = &cli.IntFlag{
-		Name:     "log.maxsize",
-		Usage:    "Maximum size in MBs of a single log file",
-		Value:    100,
-		Category: flags.LoggingCategory,
-	}
-	logMaxBackupsFlag = &cli.IntFlag{
-		Name:     "log.maxbackups",
-		Usage:    "Maximum number of log files to retain",
-		Value:    10,
-		Category: flags.LoggingCategory,
-	}
-	logMaxAgeFlag = &cli.IntFlag{
-		Name:     "log.maxage",
-		Usage:    "Maximum number of days to retain a log file",
-		Value:    30,
-		Category: flags.LoggingCategory,
-	}
-	logCompressFlag = &cli.BoolFlag{
-		Name:     "log.compress",
-		Usage:    "Compress the log files",
-		Value:    false,
-		Category: flags.LoggingCategory,
-	}
 	pprofFlag = &cli.BoolFlag{
 		Name:     "pprof",
 		Usage:    "Enable the pprof HTTP server",
