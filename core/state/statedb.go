@@ -38,12 +38,6 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 )
 
-//const (
-// storageDeleteLimit denotes the highest permissible memory allocation
-// employed for contract storage deletion.
-//	storageDeleteLimit = 512 * 1024 * 1024
-//)
-
 type revision struct {
 	id           int
 	journalIndex int
