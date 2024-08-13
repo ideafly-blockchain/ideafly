@@ -20,11 +20,12 @@ package pebble
 import (
 	"bytes"
 	"fmt"
-	"github.com/cockroachdb/errors"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/bloom"

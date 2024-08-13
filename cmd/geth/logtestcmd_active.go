@@ -1,4 +1,3 @@
-
 //go:build integrationtests
 
 // Copyright 2023 The go-ethereum Authors
@@ -153,6 +152,7 @@ func logTest(ctx *cli.Context) error {
 	}
 	return nil
 }
+
 // customError is a type which implements error
 type customError struct{}
 
