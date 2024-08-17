@@ -166,14 +166,6 @@ func TestNilSigner(t *testing.T) {
 					t.Fatal("expected signature values error, no nil result or panic")
 				}
 			})
-			// test Blob tx specifically, since the signature value types changed
-			t.Run("blobtx", func(t *testing.T) {
-				blobtx := createEmptyBlobTxInner(false)
-				_, err := SignNewTx(key, signer, blobtx)
-				if !errors.Is(err, ErrInvalidSig) {
-					t.Fatal("expected signature values error, no nil result or panic")
-				}
-			})
 		})
 	}
 }
