@@ -185,6 +185,8 @@ func main() {
 		doWindowsInstaller(os.Args[2:])
 	case "purge":
 		doPurge(os.Args[2:])
+	case "sanitycheck":
+		doSanityCheck()
 	default:
 		log.Fatal("unknown command ", os.Args[1])
 	}
@@ -206,9 +208,8 @@ func doInstall(cmdline []string) {
 	tc := build.GoToolchain{GOARCH: *arch, CC: *cc}
 	if *dlgo {
 		csdb := build.MustLoadChecksums("build/checksums.txt")
-		tc.Root = build.DownloadGo(csdb, dlgoVersion)
+		tc.Root = build.DownloadGo(csdb)
 	}
-
 	// Disable CLI markdown doc generation in release builds.
 	buildTags := []string{"urfave_cli_no_docs"}
 
@@ -303,7 +304,7 @@ func doTest(cmdline []string) {
 	tc := build.GoToolchain{GOARCH: *arch, CC: *cc}
 	if *dlgo {
 		csdb := build.MustLoadChecksums("build/checksums.txt")
-		tc.Root = build.DownloadGo(csdb, dlgoVersion)
+		tc.Root = build.DownloadGo(csdb)
 	}
 	gotest := tc.Go("test")
 
@@ -747,6 +748,10 @@ func doDebianSource(cmdline []string) {
 // to bootstrap the builder Go.
 func downloadGoBootstrapSources(cachedir string) string {
 	csdb := build.MustLoadChecksums("build/checksums.txt")
+	gobootVersion, err := build.Version(csdb, "ppa-builder")
+	if err != nil {
+		log.Fatal(err)
+	}
 	file := fmt.Sprintf("go%s.src.tar.gz", gobootVersion)
 	url := "https://dl.google.com/go/" + file
 	dst := filepath.Join(cachedir, file)
@@ -759,6 +764,10 @@ func downloadGoBootstrapSources(cachedir string) string {
 // downloadGoSources downloads the Go source tarball.
 func downloadGoSources(cachedir string) string {
 	csdb := build.MustLoadChecksums("build/checksums.txt")
+	dlgoVersion, err := build.Version(csdb, "golang")
+	if err != nil {
+		log.Fatal(err)
+	}
 	file := fmt.Sprintf("go%s.src.tar.gz", dlgoVersion)
 	url := "https://dl.google.com/go/" + file
 	dst := filepath.Join(cachedir, file)
@@ -1084,4 +1093,8 @@ func doPurge(cmdline []string) {
 	if err := build.AzureBlobstoreDelete(auth, blobs); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func doSanityCheck() {
+	build.DownloadAndVerifyChecksums(build.MustLoadChecksums("build/checksums.txt"))
 }
