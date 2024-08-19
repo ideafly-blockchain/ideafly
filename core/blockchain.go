@@ -641,9 +641,8 @@ func (bc *BlockChain) setHeadBeyondRoot(head uint64, time uint64, root common.Ha
 				log.Error("Gap in the chain, rewinding to genesis", "number", header.Number, "hash", header.Hash())
 				newHeadBlock = bc.genesisBlock
 			} else {
-				// Block exists, keep rewinding until we find one with state,
-				// keeping rewinding until we exceed the optional threshold
-				// root hash
+				// Block exists. Keep rewinding until either we find one with state
+				// or until we exceed the optional threshold root hash
 				beyondRoot := (root == common.Hash{}) // Flag whether we're beyond the requested root (no root, always true)
 
 				for {
@@ -958,6 +957,7 @@ func (bc *BlockChain) Stop() {
 		if snapBase, err = bc.snaps.Journal(bc.CurrentBlock().Root); err != nil {
 			log.Error("Failed to journal state snapshot", "err", err)
 		}
+		bc.snaps.Release()
 	}
 
 	// Ensure the state of a recent block is also stored to disk before exiting.
