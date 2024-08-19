@@ -39,6 +39,7 @@ func TestVerification(t *testing.T) {
 	})
 	// Signatures generated with `signify-openbsd`
 	t.Run("signify-openbsd", func(t *testing.T) {
+		t.Parallel()
 		t.Skip("This currently fails, minisign expects 4 lines of data, signify provides only 2")
 		// For this test, the pubkey is in testdata/signifykey.pub
 		// (the privkey is `signifykey.sec`, if we want to expand this test. Password 'test' )
@@ -87,6 +88,7 @@ func versionUint(v string) int {
 
 // TestMatching can be used to check that the regexps are correct
 func TestMatching(t *testing.T) {
+	t.Parallel()
 	data, _ := os.ReadFile("./testdata/vcheck/vulnerabilities.json")
 	var vulns []vulnJson
 	if err := json.Unmarshal(data, &vulns); err != nil {
@@ -131,6 +133,7 @@ func TestMatching(t *testing.T) {
 }
 
 func TestGethPubKeysParseable(t *testing.T) {
+	t.Parallel()
 	for _, pubkey := range gethPubKeys {
 		_, err := minisign.NewPublicKey(pubkey)
 		if err != nil {
@@ -140,6 +143,7 @@ func TestGethPubKeysParseable(t *testing.T) {
 }
 
 func TestKeyID(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		id [8]byte
 	}
@@ -153,7 +157,9 @@ func TestKeyID(t *testing.T) {
 		{"third key", args{id: extractKeyId(gethPubKeys[2])}, "FD9813B2D2098484"},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if got := keyID(tt.args.id); got != tt.want {
 				t.Errorf("keyID() = %v, want %v", got, tt.want)
 			}
