@@ -87,9 +87,6 @@ func MustRunCommandWithOutput(cmd string, args ...string) {
 		}
 	}()
 	MustRun(exec.Command(cmd, args...))
-	if done != nil {
-		close(done)
-	}
 }
 
 var warnedAboutGit bool
