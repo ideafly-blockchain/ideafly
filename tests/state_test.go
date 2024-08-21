@@ -65,6 +65,9 @@ func TestState(t *testing.T) {
 	// Broken tests:
 	// Expected failures:
 
+	// EOF is not part of cancun
+	st.skipLoad(`^stEOF/`)
+
 	// For Istanbul, older tests were moved into LegacyTests
 	for _, dir := range []string{
 		stateTestDir,
