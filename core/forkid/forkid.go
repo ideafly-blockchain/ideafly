@@ -115,7 +115,7 @@ func NewIDWithChain(chain Blockchain) ID {
 func NewFilter(chain Blockchain) Filter {
 	return newFilter(
 		chain.Config(),
-		chain.Genesis().Hash(),
+		chain.Genesis(),
 		func() (uint64, uint64) {
 			head := chain.CurrentHeader()
 			return head.Number.Uint64(), head.Time
@@ -124,7 +124,7 @@ func NewFilter(chain Blockchain) Filter {
 }
 
 // NewStaticFilter creates a filter at block zero.
-func NewStaticFilter(config *params.ChainConfig, genesis common.Hash) Filter {
+func NewStaticFilter(config *params.ChainConfig, genesis *types.Block) Filter {
 	head := func() (uint64, uint64) { return 0, 0 }
 	return newFilter(config, genesis, head)
 }
@@ -132,14 +132,14 @@ func NewStaticFilter(config *params.ChainConfig, genesis common.Hash) Filter {
 // newFilter is the internal version of NewFilter, taking closures as its arguments
 // instead of a chain. The reason is to allow testing it without having to simulate
 // an entire blockchain.
-func newFilter(config *params.ChainConfig, genesis common.Hash, headfn func() (uint64, uint64)) Filter {
+func newFilter(config *params.ChainConfig, genesis *types.Block, headfn func() (uint64, uint64)) Filter {
 	// Calculate the all the valid fork hash and fork next combos
 	var (
 		forksByBlock, forksByTime = gatherForks(config)
 		forks                     = append(append([]uint64{}, forksByBlock...), forksByTime...)
 		sums                      = make([][4]byte, len(forks)+1) // 0th is the genesis
 	)
-	hash := crc32.ChecksumIEEE(genesis[:])
+	hash := crc32.ChecksumIEEE(genesis.Hash().Bytes())
 	sums[0] = checksumToBytes(hash)
 	for i, fork := range forks {
 		hash = checksumUpdate(hash, fork)
