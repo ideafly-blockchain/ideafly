@@ -28,11 +28,18 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+var RunFlag = &cli.StringFlag{
+	Name:  "run",
+	Value: ".*",
+	Usage: "Run only those tests matching the regular expression.",
+}
+
 var blockTestCommand = &cli.Command{
 	Action:    blockTestCmd,
 	Name:      "blocktest",
 	Usage:     "executes the given blockchain tests",
 	ArgsUsage: "<file>",
+	Flags:     []cli.Flag{RunFlag},
 }
 
 func blockTestCmd(ctx *cli.Context) error {
