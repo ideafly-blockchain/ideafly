@@ -136,6 +136,7 @@ type Message struct {
 	GasTipCap  *big.Int
 	Data       []byte
 	AccessList types.AccessList
+	BlobHashes []common.Hash
 
 	// When SkipAccountChecks is true, the message nonce is not checked against the
 	// account nonce in state. It also disables checking that the sender is an EOA.

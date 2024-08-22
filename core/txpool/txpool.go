@@ -579,7 +579,7 @@ func (pool *TxPool) Pending(enforceTips bool) map[common.Address]types.Transacti
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
 
-	pending := make(map[common.Address]types.Transactions)
+	pending := make(map[common.Address]types.Transactions, len(pool.pending))
 	for addr, list := range pool.pending {
 		txs := list.Flatten()
 
@@ -876,10 +876,12 @@ func (pool *TxPool) replacePending(list *list, from common.Address, tx *types.Tr
 
 // isGapped reports whether the given transaction is immediately executable.
 func (pool *TxPool) isGapped(from common.Address, tx *types.Transaction) bool {
-	// Short circuit if transaction matches pending nonce and can be promoted
-	// to pending list as an executable transaction.
+	// Short circuit if transaction falls within the scope of the pending list
+	// or matches the next pending nonce which can be promoted as an executable
+	// transaction afterwards. Note, the tx staleness is already checked in
+	// 'validateTx' function previously.
 	next := pool.pendingNonces.get(from)
-	if tx.Nonce() == next {
+	if tx.Nonce() <= next {
 		return false
 	}
 	// The transaction has a nonce gap with pending list, it's only considered

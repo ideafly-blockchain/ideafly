@@ -333,7 +333,7 @@ func (s *StateDB) GetProof(addr common.Address) ([][]byte, error) {
 // GetProofByHash returns the Merkle proof for a given account.
 func (s *StateDB) GetProofByHash(addrHash common.Hash) ([][]byte, error) {
 	var proof proofList
-	err := s.trie.Prove(addrHash[:], 0, &proof)
+	err := s.trie.Prove(addrHash[:], &proof)
 	return proof, err
 }
 
@@ -344,7 +344,7 @@ func (s *StateDB) GetStorageProof(a common.Address, key common.Hash) ([][]byte, 
 	if trie == nil {
 		return proof, errors.New("storage trie for requested address does not exist")
 	}
-	err := trie.Prove(crypto.Keccak256(key.Bytes()), 0, &proof)
+	err := trie.Prove(crypto.Keccak256(key.Bytes()), &proof)
 	return proof, err
 }
 
@@ -535,6 +535,13 @@ func (s *StateDB) updateStateObject(obj *stateObject) {
 	if err := s.trie.UpdateStorage(addr, addr[:], obj.accountRLP); err != nil {
 		s.setError(fmt.Errorf("updateStateObject (%x) error: %v", addr[:], err))
 	}
+	if obj.dirtyCode {
+		s.trie.UpdateContractCode(obj.Address(), common.BytesToHash(obj.CodeHash()), obj.code)
+	}
+	// Cache the data until commit. Note, this update mechanism is not symmetric
+	// to the deletion, because whereas it is enough to track account updates
+	// at commit time, deletions need tracking at transaction boundary level to
+	// ensure we capture state clearing.
 
 	// If state snapshotting is active, cache the data til commit. Note, this
 	// update mechanism is not symmetric to the deletion, because whereas it is
@@ -702,19 +709,38 @@ func (s *StateDB) GetOrNewStateObject(addr common.Address) *stateObject {
 // the given address, it is overwritten and returned as the second return value.
 func (s *StateDB) createObject(addr common.Address) (newobj, prev *stateObject) {
 	prev = s.getDeletedStateObject(addr) // Note, prev might have been deleted, we need that!
-
-	var prevdestruct bool
-	if prev != nil {
-		_, prevdestruct = s.stateObjectsDestruct[prev.address]
-		if !prevdestruct {
-			s.stateObjectsDestruct[prev.address] = struct{}{}
-		}
-	}
 	newobj = newObject(s, addr, types.StateAccount{})
 	if prev == nil {
 		s.journal.append(createObjectChange{account: &addr})
 	} else {
-		s.journal.append(resetObjectChange{prev: prev, prevdestruct: prevdestruct})
+		// The original account should be marked as destructed and all cached
+		// account and storage data should be cleared as well. Note, it must
+		// be done here, otherwise the destruction event of original one will
+		// be lost.
+		_, prevdestruct := s.stateObjectsDestruct[prev.address]
+		if !prevdestruct {
+			s.stateObjectsDestruct[prev.address] = struct{}{}
+		}
+		var (
+			account []byte
+			storage map[common.Hash][]byte
+		)
+		// There may be some cached account/storage data already since IntermediateRoot
+		// will be called for each transaction before byzantium fork which will always
+		// cache the latest account/storage data.
+		if s.snap != nil {
+			account = s.snapAccounts[prev.addrHash]
+			storage = s.snapStorage[prev.addrHash]
+			delete(s.snapAccounts, prev.addrHash)
+			delete(s.snapStorage, prev.addrHash)
+		}
+		s.journal.append(resetObjectChange{
+			account:      &addr,
+			prev:         prev,
+			prevdestruct: prevdestruct,
+			prevAccount:  account,
+			prevStorage:  storage,
+		})
 	}
 	s.setStateObject(newobj)
 	if prev != nil && !prev.deleted {
@@ -993,7 +1019,7 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 				// Encode the account and update the account trie
 				obj.accountRLP, obj.rlpErr = rlp.EncodeToBytes(&obj.data)
 				if s.snap != nil {
-					obj.slimAccountRLP = snapshot.SlimAccountRLP(obj.data.Nonce, obj.data.Balance, obj.data.Root, obj.data.CodeHash)
+					obj.slimAccountRLP = types.SlimAccountRLP(obj.data)
 				}
 				wg.Done()
 			})
@@ -1080,6 +1106,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 		if obj := s.stateObjects[addr]; !obj.deleted {
 			// Write any contract code associated with the state object
 			if obj.code != nil && obj.dirtyCode {
+				s.trie.UpdateContractCode(obj.Address(), common.BytesToHash(obj.CodeHash()), obj.code)
 				rawdb.WriteCode(codeWriter, common.BytesToHash(obj.CodeHash()), obj.code)
 				obj.dirtyCode = false
 			}

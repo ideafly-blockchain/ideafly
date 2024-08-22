@@ -92,6 +92,10 @@ type Trie interface {
 	// in the trie with provided address.
 	UpdateAccount(address common.Address, account *types.StateAccount) error
 
+	// UpdateContractCode abstracts code write to the trie. It is expected
+	// to be moved to the stateWriter interface when the latter is ready.
+	UpdateContractCode(address common.Address, codeHash common.Hash, code []byte) error
+
 	// DeleteStorage removes any existing value for key from the trie. If a node
 	// was not found in the database, a trie.MissingNodeError is returned.
 	DeleteStorage(addr common.Address, key []byte) error
@@ -122,7 +126,7 @@ type Trie interface {
 	// If the trie does not contain a value for key, the returned proof contains all
 	// nodes of the longest existing prefix of the key (at least the root), ending
 	// with the node that proves the absence of the key.
-	Prove(key []byte, fromLevel uint, proofDb ethdb.KeyValueWriter) error
+	Prove(key []byte, proofDb ethdb.KeyValueWriter) error
 }
 
 // NewDatabase creates a backing store for state. The returned database is safe for
