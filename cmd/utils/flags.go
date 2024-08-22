@@ -2205,18 +2205,6 @@ func MakeChainDatabase(ctx *cli.Context, stack *node.Node, readonly bool) ethdb.
 	return chainDb
 }
 
-// tryMakeReadOnlyDatabase try to open the chain database in read-only mode,
-// or fallback to write mode if the database is not initialized.
-//func tryMakeReadOnlyDatabase(ctx *cli.Context, stack *node.Node) ethdb.Database {
-// If the database doesn't exist we need to open it in write-mode to allow
-// the engine to create files.
-//	readonly := true
-//	if rawdb.PreexistingDatabase(stack.ResolvePath("chaindata")) == "" {
-//		readonly = false
-//	}
-//	return MakeChainDatabase(ctx, stack, readonly)
-//}
-
 func IsNetworkPreset(ctx *cli.Context) bool {
 	for _, flag := range NetworkFlags {
 		bFlag, _ := flag.(*cli.BoolFlag)

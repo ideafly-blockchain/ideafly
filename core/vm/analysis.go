@@ -16,9 +16,6 @@
 
 package vm
 
-//	"github.com/ethereum/go-ethereum/common"
-//	lru "github.com/hashicorp/golang-lru"
-
 const (
 	set2BitsMask = uint16(0b11)
 	set3BitsMask = uint16(0b111)
@@ -27,10 +24,6 @@ const (
 	set6BitsMask = uint16(0b11_1111)
 	set7BitsMask = uint16(0b111_1111)
 )
-
-//const codeBitmapCacheSize = 10000
-
-//var codeBitmapCache, _ = lru.NewARC(codeBitmapCacheSize)
 
 // bitvec is a bit vector which maps bytes in a program.
 // An unset bit means the byte is an opcode, a set bit means
@@ -124,14 +117,3 @@ func codeBitmapInternal(code, bits bitvec) bitvec {
 	}
 	return bits
 }
-
-//func codeBitmapWithCache(code []byte, codeHash common.Hash) bitvec {
-//
-//	if val, ok := codeBitmapCache.Get(codeHash); ok {
-//		return val.(bitvec)
-//	} else {
-//		val := codeBitmap(code)
-//		codeBitmapCache.Add(codeHash, val)
-//		return val
-//	}
-//}
