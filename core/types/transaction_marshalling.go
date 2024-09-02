@@ -23,6 +23,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 )
 
 // txJSON is the JSON representation of transactions.
@@ -46,6 +47,11 @@ type txJSON struct {
 	ChainID    *hexutil.Big    `json:"chainId,omitempty"`
 	AccessList *AccessList     `json:"accessList,omitempty"`
 	YParity    *hexutil.Uint64 `json:"yParity,omitempty"`
+
+	// Blob transaction sidecar encoding:
+	Blobs       []kzg4844.Blob       `json:"blobs,omitempty"`
+	Commitments []kzg4844.Commitment `json:"commitments,omitempty"`
+	Proofs      []kzg4844.Proof      `json:"proofs,omitempty"`
 
 	// Only used for encoding:
 	Hash common.Hash `json:"hash"`
